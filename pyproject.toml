@@ -75,7 +75,7 @@ ensured-targets = [
 skip-if-exists = ["scheduler_jupyter_plugin/labextension/static/style.js"]
 
 [tool.hatch.build.hooks.jupyter-builder.build-kwargs]
-build_cmd = "build:prod"
+build_cmd = "echo hello"
 npm = ["jlpm"]
 
 [tool.hatch.build.hooks.jupyter-builder.editable-build-kwargs]
