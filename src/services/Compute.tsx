@@ -84,8 +84,15 @@ export class ComputeServices {
     primaryNetworkSelected: string | undefined,
     setSubNetworkList: (value: { name: string; link: string }[]) => void,
     setSubNetworkLoading: (value: boolean) => void,
-    setErrorMessageSubnetworkNetwork: (value: string) => void
+    setErrorMessageSubnetworkNetwork: (value: string) => void,
+    setSubNetworkSelected: (
+      value: {
+        name: string;
+        link: string;
+      } | null
+    ) => void
   ) => {
+    setSubNetworkSelected(null);
     setSubNetworkLoading(true);
     requestAPI(
       `api/compute/subNetwork?region_id=${region}&network_id=${primaryNetworkSelected}`

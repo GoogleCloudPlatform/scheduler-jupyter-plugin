@@ -40,9 +40,8 @@ export interface ICreatePayload {
   cloud_storage_bucket: string | null;
   parameters?: string[];
   service_account: any | undefined;
-  network_option: any | undefined;
-  network: any | undefined;
-  subnetwork: any | undefined;
+  network?: any | undefined;
+  subnetwork?: any | undefined;
   shared_network?: any;
   scheduleMode?: scheduleMode;
   start_time: dayjs.Dayjs | string | null;

@@ -78,8 +78,8 @@ class DescribeVertexJob(BaseModel):
     cloud_storage_bucket: str = None
     parameters: Optional[List[str]] = None
     service_account: str = None
-    network: str = None
-    subnetwork: str = None
+    network: Optional[str] = None
+    subnetwork: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     disk_type: str = None

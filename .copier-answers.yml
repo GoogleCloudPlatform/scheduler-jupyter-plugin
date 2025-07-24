@@ -9,5 +9,5 @@ kind: server
 labextension_name: scheduler-jupyter-plugin
 project_short_description: A JupyterLab extension.
 python_name: scheduler_jupyter_plugin
-repository: https://github.com/harsha-accenture/scheduler-jupyter-plugin.git
+repository: https://github.com/GoogleCloudPlatform/scheduler-jupyter-plugin.git
 test: true

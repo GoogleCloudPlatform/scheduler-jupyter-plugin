@@ -76,5 +76,7 @@ async def get_cached():
         # As such, we treat them being missing as a signal that there is
         # a problem with how the user is logged in to gcloud.
         credentials["login_error"] = 1
+    elif not credentials["project_id"] or not credentials["region_id"]:
+        credentials["config_error"] = 1
 
     return credentials

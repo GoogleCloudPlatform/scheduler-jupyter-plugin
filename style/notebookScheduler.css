@@ -790,3 +790,8 @@ body[data-jp-theme-light='true'].scroll-fix-header {
   justify-content: space-between !important;
   width: 100% !important;
 }
+
+.network-option-helper-text {
+  font-size: 12px;
+  font-weight: 500;
+}

@@ -93,7 +93,6 @@ export const DISK_TYPE_VALUE = [
 ];
 export type internalScheduleMode = 'cronFormat' | 'userFriendly';
 export const KERNEL_VALUE = ['python3', 'pytorch', 'tensorflow'];
-export const DEFAULT_PRIMARY_NETWORK = 'default';
 export const DEFAULT_CLOUD_STORAGE_BUCKET = 'default-vertex-schedules';
 export const DEFAULT_MACHINE_TYPE = 'n1-standard-2 (2 CPUs, 8.05 GB RAM)';
 export const DEFAULT_KERNEL = 'python3';
@@ -152,3 +151,6 @@ export const packages = ['apache-airflow-providers-papermill', 'ipykernel'];
 export const composerEnvironmentStateList = ['RUNNING', 'UPDATING'];
 
 export const composerEnvironmentStateListForCreate = 'RUNNING';
+
+export const SUBNETWORK_VERTEX_ERROR =
+  'No Subnetworks found with Google Private Access - ON';

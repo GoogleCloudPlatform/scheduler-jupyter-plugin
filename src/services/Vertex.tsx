@@ -564,14 +564,34 @@ export class VertexServices {
           formattedResponse.createNotebookExecutionJobRequest.notebookExecutionJob.gcsNotebookSource.uri.split(
             '/'
           );
-        const primaryNetwork =
-          formattedResponse.createNotebookExecutionJobRequest.notebookExecutionJob.customEnvironmentSpec.networkSpec.network.split(
-            '/'
-          );
-        const subnetwork =
-          formattedResponse.createNotebookExecutionJobRequest.notebookExecutionJob.customEnvironmentSpec.networkSpec.subnetwork.split(
-            '/'
-          );
+
+        let primaryNetwork = '';
+        if (
+          Object.hasOwn(
+            formattedResponse.createNotebookExecutionJobRequest
+              .notebookExecutionJob.customEnvironmentSpec.networkSpec,
+            'network'
+          )
+        ) {
+          primaryNetwork =
+            formattedResponse.createNotebookExecutionJobRequest.notebookExecutionJob.customEnvironmentSpec.networkSpec.network.split(
+              '/'
+            );
+        }
+
+        let subnetwork = '';
+        if (
+          Object.hasOwn(
+            formattedResponse.createNotebookExecutionJobRequest
+              .notebookExecutionJob.customEnvironmentSpec.networkSpec,
+            'subnetwork'
+          )
+        ) {
+          subnetwork =
+            formattedResponse.createNotebookExecutionJobRequest.notebookExecutionJob.customEnvironmentSpec.networkSpec.subnetwork.split(
+              '/'
+            );
+        }
         const scheduleDetails: ICreatePayload = {
           job_id: jobId,
           input_filename: inputFileName[inputFileName.length - 1],
@@ -605,16 +625,23 @@ export class VertexServices {
               formattedResponse.createNotebookExecutionJobRequest
                 .notebookExecutionJob.serviceAccount
           },
-          network_option: '',
           network: {
-            name: primaryNetwork[primaryNetwork.length - 1],
-            link: formattedResponse.createNotebookExecutionJobRequest
-              .notebookExecutionJob.customEnvironmentSpec.networkSpec.network
+            name: primaryNetwork
+              ? primaryNetwork[primaryNetwork.length - 1]
+              : '',
+            link: primaryNetwork
+              ? formattedResponse.createNotebookExecutionJobRequest
+                  .notebookExecutionJob.customEnvironmentSpec.networkSpec
+                  .network
+              : ''
           },
           subnetwork: {
-            name: subnetwork[subnetwork.length - 1],
-            link: formattedResponse.createNotebookExecutionJobRequest
-              .notebookExecutionJob.customEnvironmentSpec.networkSpec.subnetwork
+            name: subnetwork ? subnetwork[subnetwork.length - 1] : '',
+            link: subnetwork
+              ? formattedResponse.createNotebookExecutionJobRequest
+                  .notebookExecutionJob.customEnvironmentSpec.networkSpec
+                  .subnetwork
+              : ''
           },
           start_time: null,
           end_time: null,

@@ -22,8 +22,17 @@ import { IconsigninGoogle } from './Icons';
 
 const LoginErrorComponent: React.FC<ILoginErrorProps> = ({
   loginError = false,
-  setLoginError
+  setLoginError,
+  configError = false
 }) => {
+  if (configError) {
+    return (
+      <div className="login-error">
+        Please configure gcloud with account, project-id and region
+      </div>
+    );
+  }
+
   if (loginError) {
     return (
       <>

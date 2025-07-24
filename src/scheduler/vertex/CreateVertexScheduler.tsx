@@ -49,7 +49,6 @@ import {
   DEFAULT_DISK_SIZE,
   DEFAULT_KERNEL,
   DEFAULT_MACHINE_TYPE,
-  DEFAULT_PRIMARY_NETWORK,
   DEFAULT_SERVICE_ACCOUNT,
   DISK_TYPE_VALUE,
   everyMinuteCron,
@@ -58,6 +57,7 @@ import {
   scheduleMode,
   scheduleValueExpression,
   SHARED_NETWORK_DOC_URL,
+  SUBNETWORK_VERTEX_ERROR,
   VERTEX_REGIONS,
   VERTEX_SCHEDULE
 } from '../../utils/Const';
@@ -291,6 +291,7 @@ const CreateVertexScheduler = ({
     primaryValue: React.SetStateAction<{ name: string; link: string } | null>
   ) => {
     setPrimaryNetworkSelected(primaryValue);
+    setSubNetworkSelected(null);
     subNetworkAPI(primaryValue?.name);
   };
 
@@ -658,7 +659,8 @@ const CreateVertexScheduler = ({
       primaryNetwork,
       setSubNetworkList,
       setSubNetworkLoading,
-      setErrorMessageSubnetworkNetwork
+      setErrorMessageSubnetworkNetwork,
+      setSubNetworkSelected
     );
   };
 
@@ -693,10 +695,9 @@ const CreateVertexScheduler = ({
       cloudStorage === null ||
       serviceAccountSelected === null ||
       (networkSelected === 'networkInThisProject' &&
+        subNetworkSelected &&
         (primaryNetworkSelected === null ||
-          subNetworkSelected === null ||
-          subNetworkSelected === undefined)) ||
-      (networkSelected === 'networkShared' && sharedNetworkSelected === null) ||
+          primaryNetworkSelected === undefined)) ||
       (scheduleMode === 'runSchedule' &&
         ((internalScheduleMode === 'cronFormat' &&
           (scheduleField === '' || scheduleField === everyMinuteCron)) ||
@@ -706,7 +707,8 @@ const CreateVertexScheduler = ({
       endDateError ||
       isPastEndDate ||
       isPastStartDate ||
-      diskSizeFlag
+      diskSizeFlag ||
+      !diskTypeSelected
     );
   };
 
@@ -745,7 +747,6 @@ const CreateVertexScheduler = ({
       max_run_count: scheduleMode === 'runNow' ? '1' : maxRuns,
       region: region,
       cloud_storage_bucket: `gs://${cloudStorage}`,
-      network_option: networkSelected,
       service_account: serviceAccountSelected?.email,
       network:
         networkSelected === 'networkInThisProject'
@@ -855,6 +856,20 @@ const CreateVertexScheduler = ({
   }, []);
 
   useEffect(() => {
+    if (!createCompleted) {
+      authApi()
+        .then(credentials => {
+          if (credentials?.region_id && credentials?.project_id) {
+            setProjectId(credentials.project_id);
+          }
+        })
+        .catch(error => {
+          handleErrorToast({
+            error: error
+          });
+        });
+    }
+
     if (editMode && vertexSchedulerDetails) {
       setJobId(vertexSchedulerDetails.job_id ?? '');
       setInputFileSelected(vertexSchedulerDetails.input_filename);
@@ -889,11 +904,14 @@ const CreateVertexScheduler = ({
       setDiskTypeSelected(vertexSchedulerDetails.disk_type);
       setDiskSize(vertexSchedulerDetails.disk_size);
       setGcsPath(vertexSchedulerDetails.gcs_notebook_source ?? '');
+    }
+  }, [editMode]);
 
-      const primaryNetworkLink = vertexSchedulerDetails.network.link;
-
+  useEffect(() => {
+    if (editMode && projectId) {
+      const primaryNetworkLink = vertexSchedulerDetails?.network.link;
       // eslint-disable-next-line no-useless-escape
-      const projectInNetwork = primaryNetworkLink.match(/projects\/([^\/]+)/);
+      const projectInNetwork = primaryNetworkLink?.match(/projects\/([^\/]+)/);
       if (projectInNetwork?.[1]) {
         if (projectInNetwork[1] === projectId) {
           setNetworkSelected('networkInThisProject');
@@ -901,9 +919,9 @@ const CreateVertexScheduler = ({
           setNetworkSelected('networkShared');
         }
       }
-      setVertexSchedulerDetails(null); // reset the values once loaded so as to accept new values.
+      setVertexSchedulerDetails(null);
     }
-  }, [editMode]);
+  }, [editMode, projectId]);
 
   useEffect(() => {
     if (!region) {
@@ -916,26 +934,6 @@ const CreateVertexScheduler = ({
       }
     }
   }, [region]);
-
-  useEffect(() => {
-    if (!editMode) {
-      setSubNetworkSelected(subNetworkList[0]);
-    }
-  }, [subNetworkList, networkSelected]);
-
-  useEffect(() => {
-    if (!editMode) {
-      const primaryNetwork = primaryNetworkList[0];
-      setPrimaryNetworkSelected(primaryNetwork);
-      if (
-        region &&
-        primaryNetwork &&
-        networkSelected === 'networkInThisProject'
-      ) {
-        subNetworkAPI(DEFAULT_PRIMARY_NETWORK);
-      }
-    }
-  }, [primaryNetworkList, networkSelected]);
 
   useEffect(() => {
     if (
@@ -1214,6 +1212,13 @@ const CreateVertexScheduler = ({
                 )}
                 clearIcon={false}
               />
+              {!diskTypeSelected && (
+                <ErrorMessage
+                  message="Disk type is required"
+                  showIcon={false}
+                  errorWidth={true}
+                />
+              )}
             </div>
             <div className="create-scheduler-form-element create-scheduler-form-element-input-fl create-pr">
               <Input
@@ -1345,16 +1350,12 @@ const CreateVertexScheduler = ({
                   className="create-scheduler-style create-scheduler-form-element-input-fl"
                   options={primaryNetworkList}
                   getOptionLabel={option => option.name}
-                  value={
-                    primaryNetworkList.find(
-                      option => option.name === primaryNetworkSelected?.name
-                    ) || null
-                  }
+                  value={primaryNetworkSelected}
                   onChange={(_event, val) => handlePrimaryNetwork(val)}
                   renderInput={params => (
                     <TextField
                       {...params}
-                      label="Primary network*"
+                      label="Primary network"
                       InputProps={{
                         ...params.InputProps,
                         endAdornment: (
@@ -1375,12 +1376,9 @@ const CreateVertexScheduler = ({
                   clearIcon={false}
                   disabled={editMode}
                 />
-                {!primaryNetworkSelected && (
+                {errorMessagePrimaryNetwork && (
                   <ErrorMessage
-                    message={
-                      errorMessagePrimaryNetwork ||
-                      'Primary network is required'
-                    }
+                    message={errorMessagePrimaryNetwork}
                     showIcon={false}
                   />
                 )}
@@ -1390,16 +1388,12 @@ const CreateVertexScheduler = ({
                   className="create-scheduler-style create-scheduler-form-element-input-fl"
                   options={subNetworkList}
                   getOptionLabel={option => option.name}
-                  value={
-                    subNetworkList?.find(
-                      option => option?.name === subNetworkSelected?.name
-                    ) || null
-                  }
+                  value={subNetworkSelected}
                   onChange={(_event, val) => handleSubNetwork(val)}
                   renderInput={params => (
                     <TextField
                       {...params}
-                      label="Sub network*"
+                      label="Sub network"
                       InputProps={{
                         ...params.InputProps,
                         endAdornment: (
@@ -1418,17 +1412,16 @@ const CreateVertexScheduler = ({
                     />
                   )}
                   clearIcon={false}
-                  disabled={editMode}
+                  disabled={editMode || !primaryNetworkSelected}
+                  noOptionsText={
+                    <span className="network-option-helper-text">
+                      {SUBNETWORK_VERTEX_ERROR}
+                    </span>
+                  }
                 />
-                {!subNetworkSelected && (
+                {errorMessageSubnetworkNetwork && (
                   <ErrorMessage
-                    message={
-                      errorMessageSubnetworkNetwork
-                        ? errorMessageSubnetworkNetwork
-                        : subNetworkList.length === 0 && primaryNetworkSelected
-                          ? 'No Subnetworks found with Google Private Access - ON'
-                          : 'Sub network is required'
-                    }
+                    message={errorMessageSubnetworkNetwork}
                     showIcon={false}
                   />
                 )}
