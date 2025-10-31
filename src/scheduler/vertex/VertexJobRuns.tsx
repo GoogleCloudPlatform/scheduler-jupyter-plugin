@@ -24,6 +24,10 @@ import { VertexServices } from '../../services/Vertex';
 import { iconDash } from '../../utils/Icons';
 import VertexExecutionHistoryActions from './VertexExecutionHistoryActions';
 import { IVertexExecutionHistoryCellProps } from '../../utils/Config';
+import {
+  EXECUTION_DATE_SELECTION_HELPER_TEXT,
+  NO_EXECUTION_FOUND
+} from '../../utils/Const';
 
 const VertexJobRuns = ({
   region,
@@ -42,7 +46,8 @@ const VertexJobRuns = ({
   vertexScheduleRunsList,
   setVertexScheduleRunsList,
   abortControllers,
-  abortApiCall
+  abortApiCall,
+  hasJobExecutions
 }: {
   region: string;
   schedulerData: ISchedulerData | undefined;
@@ -63,6 +68,7 @@ const VertexJobRuns = ({
   setVertexScheduleRunsList: (value: IVertexScheduleRunList[]) => void;
   abortControllers: any;
   abortApiCall: () => void;
+  hasJobExecutions: boolean;
 }): JSX.Element => {
   /**
    * Filters vertex schedule runs list based on the selected date.
@@ -319,7 +325,11 @@ const VertexJobRuns = ({
           )}
           {!isLoading &&
             filteredData.length === 0 &&
-            (selectedDate ? (
+            (hasJobExecutions && !selectedDate ? (
+              <div className="no-data-style">
+                {EXECUTION_DATE_SELECTION_HELPER_TEXT}
+              </div>
+            ) : selectedDate && hasJobExecutions ? (
               <div className="no-data-style">
                 No rows to display on{' '}
                 {selectedDate
@@ -330,7 +340,7 @@ const VertexJobRuns = ({
                   .join(' ')}
               </div>
             ) : (
-              <div className="no=data-style">No rows to display</div>
+              <div className="no-data-style">{NO_EXECUTION_FOUND}</div>
             ))}
         </div>
       )}

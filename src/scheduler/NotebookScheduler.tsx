@@ -38,6 +38,7 @@ import CreateVertexScheduler from './vertex/CreateVertexScheduler';
 import EnableNotifyMessage from './common/EnableNotifyMessage';
 import { checkConfig } from '../utils/Config';
 import LoginErrorComponent from '../utils/LoginErrorComponent';
+import { INPUT_HELPER_TEXT } from '../utils/Const';
 
 const NotebookSchedulerComponent = ({
   themeManager,
@@ -247,6 +248,11 @@ const NotebookSchedulerComponent = ({
                     Label="Input file*"
                     disabled={true}
                   />
+                </div>
+                <div className="input-file-description-text">
+                  <span className="tab-description tab-text-sub-cl">
+                    {INPUT_HELPER_TEXT}
+                  </span>
                 </div>
               </div>
             </>

@@ -150,3 +150,9 @@ export interface IKeyListResponse {
     code: number;
   };
 }
+
+export interface IFetchLastRunPayload {
+  schedule: any;
+  region: string;
+  abortControllers: any;
+}

@@ -33,6 +33,7 @@ import {
 import { LOG_EXPLORER_BASE_URL, VIEW_CLOUD_LOGS } from '../../utils/Const';
 import { handleErrorToast } from '../../utils/ErrorUtils';
 import CustomDate from '../common/CustomDate';
+import { VertexServices } from '../../services/Vertex';
 
 const VertexExecutionHistory = ({
   region,
@@ -72,12 +73,16 @@ const VertexExecutionHistory = ({
   const currentDate = new Date().toLocaleDateString();
   const [selectedMonth, setSelectedMonth] = useState<Dayjs | null>(null);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
+  const [initialDisplayDate, setInitialDisplayDate] = useState<Dayjs | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [greyListDates, setGreyListDates] = useState<string[]>([]);
   const [redListDates, setRedListDates] = useState<string[]>([]);
   const [greenListDates, setGreenListDates] = useState<string[]>([]);
   const [darkGreenListDates, setDarkGreenListDates] = useState<string[]>([]);
   const [projectId, setProjectId] = useState<string>('');
+  const [hasJobExecutions, setHasJobExecutions] = useState<boolean>(false);
 
   useEffect(() => {
     authApi()
@@ -91,8 +96,7 @@ const VertexExecutionHistory = ({
       .catch(error => {
         console.error(error);
       });
-    setSelectedMonth(dayjs(currentDate));
-    setSelectedDate(dayjs(currentDate));
+    fetchLastRunScheduleExecution();
     setExecutionPageFlag(false);
     setExecutionPageListFlag(true);
 
@@ -152,6 +156,7 @@ const VertexExecutionHistory = ({
         redListDates={redListDates}
         greenListDates={greenListDates}
         darkGreenListDates={darkGreenListDates}
+        isLoading={isLoading}
         dateProps={props}
       />
     );
@@ -171,6 +176,30 @@ const VertexExecutionHistory = ({
       window.open(logExplorerUrl.toString());
     } catch (error) {
       console.error('Failed to open Log Explorer window:', error);
+    }
+  };
+
+  /**
+   * Fetch last run execution for the schedule
+   */
+  const fetchLastRunScheduleExecution = async () => {
+    setIsLoading(true);
+    const fetchLastRunPayload = {
+      schedule: schedulerData,
+      region: region,
+      abortControllers
+    };
+    const executionData: any =
+      await VertexServices.fetchLastRunStatus(fetchLastRunPayload);
+    if (executionData) {
+      setHasJobExecutions(true);
+      setSelectedMonth(executionData ? dayjs(executionData) : null);
+      setSelectedDate(executionData ? dayjs(executionData) : null);
+      setInitialDisplayDate(executionData ? dayjs(executionData) : null);
+    } else {
+      setHasJobExecutions(false);
+      setSelectedDate(dayjs(currentDate));
+      setIsLoading(false);
     }
   };
 
@@ -246,9 +275,14 @@ const VertexExecutionHistory = ({
           >
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DateCalendar
+                key={
+                  initialDisplayDate
+                    ? initialDisplayDate.toISOString()
+                    : 'default'
+                }
                 minDate={dayjs(schedulerData?.createTime)}
                 maxDate={dayjs(currentDate)}
-                referenceDate={dayjs(currentDate)}
+                referenceDate={selectedMonth ?? initialDisplayDate ?? today}
                 onChange={newValue => handleDateSelection(newValue)}
                 onMonthChange={handleMonthChange}
                 slots={{
@@ -277,6 +311,7 @@ const VertexExecutionHistory = ({
               setVertexScheduleRunsList={setVertexScheduleRunsList}
               abortControllers={abortControllers}
               abortApiCall={abortApiCall}
+              hasJobExecutions={hasJobExecutions}
             />
           </div>
         </div>

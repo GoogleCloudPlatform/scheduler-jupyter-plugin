@@ -30,7 +30,8 @@ import {
   IUpdateSchedulerAPIResponse,
   IFormattedResponse,
   IKeyRingPayload,
-  ICryptoListKeys
+  ICryptoListKeys,
+  IFetchLastRunPayload
 } from '../scheduler/vertex/VertexInterfaces';
 import dayjs, { Dayjs } from 'dayjs';
 import {
@@ -955,6 +956,35 @@ export class VertexServices {
           LOG_LEVEL.ERROR
         );
       }
+    }
+  };
+
+  // Fetch last run execution for the schedule
+  static readonly fetchLastRunStatus = async (
+    fetchLastRunPayload: IFetchLastRunPayload
+  ) => {
+    try {
+      const { schedule, region, abortControllers } = fetchLastRunPayload;
+      // Controller to abort pending API call
+      const controller = new AbortController();
+      abortControllers?.current.push(controller);
+      const signal = controller.signal;
+
+      //Extract Schedule id from schedule name.
+      const scheduleId = schedule.name.split('/').pop();
+      const serviceURLLastRunResponse = 'api/vertex/listNotebookExecutionJobs';
+      const jobExecutionList: any = await requestAPI(
+        serviceURLLastRunResponse +
+          `?region_id=${region}&schedule_id=${scheduleId}&page_size=1&order_by=createTime desc`,
+        { signal }
+      );
+
+      return jobExecutionList[0].createTime;
+    } catch (error: any) {
+      SchedulerLoggingService.log(
+        'Error fetching last five job executions',
+        LOG_LEVEL.ERROR
+      );
     }
   };
 

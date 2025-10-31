@@ -14,6 +14,7 @@ export default function CustomDate({
   redListDates,
   greenListDates,
   darkGreenListDates,
+  isLoading,
   dateProps
 }: {
   selectedDate: dayjs.Dayjs | null;
@@ -22,6 +23,7 @@ export default function CustomDate({
   greenListDates: string[];
   darkGreenListDates: string[];
   dateProps: PickersDayProps<dayjs.Dayjs>;
+  isLoading?: boolean;
 }) {
   const { day, disabled } = dateProps;
 
@@ -120,7 +122,7 @@ export default function CustomDate({
   }
 
   // Case 4: If the day is selected but without a background color (i.e., transparent background)
-  if (isSelectedExecution && backgroundColor === 'transparent') {
+  if (isSelectedExecution && backgroundColor === 'transparent' && !isLoading) {
     backgroundColor = 'transparent';
     borderColor = '2px solid #3B78E7';
   }
@@ -168,8 +170,8 @@ export default function CustomDate({
 
       {/* Render status icons based on conditions */}
 
-      {(isGreyExecution && !isSelectedExecution) ||
-      (isGreyExecution && isToday && !isSelectedExecution) ? (
+      {(isGreyExecution && !isSelectedExecution && !isLoading) ||
+      (isGreyExecution && isToday && !isSelectedExecution && !isLoading) ? (
         <div
           className={
             dateSelected && dateSelected[0] !== '0'
@@ -182,11 +184,15 @@ export default function CustomDate({
             className="icon-white logo-alignment-style"
           />
         </div>
-      ) : (!isSelectedExecution && isRedExecution && isGreenExecution) ||
+      ) : (!isSelectedExecution &&
+          isRedExecution &&
+          isGreenExecution &&
+          !isLoading) ||
         (isGreenExecution &&
           isRedExecution &&
           isToday &&
-          !isSelectedExecution) ? (
+          !isSelectedExecution &&
+          !isLoading) ? (
         <div
           className={
             dateSelected && dateSelected[0] !== '0'
@@ -199,11 +205,15 @@ export default function CustomDate({
             className="icon-white logo-alignment-style"
           />
         </div>
-      ) : (!isSelectedExecution && isRedExecution && !isGreenExecution) ||
+      ) : (!isSelectedExecution &&
+          isRedExecution &&
+          !isGreenExecution &&
+          !isLoading) ||
         (!isGreenExecution &&
           isRedExecution &&
           isToday &&
-          !isSelectedExecution) ? (
+          !isSelectedExecution &&
+          !isLoading) ? (
         <div
           className={
             dateSelected && dateSelected[0] !== '0'
@@ -216,11 +226,15 @@ export default function CustomDate({
             className="icon-white logo-alignment-style"
           />
         </div>
-      ) : (!isSelectedExecution && isGreenExecution && !isRedExecution) ||
+      ) : (!isSelectedExecution &&
+          isGreenExecution &&
+          !isRedExecution &&
+          !isLoading) ||
         (isGreenExecution &&
           !isRedExecution &&
           isToday &&
-          !isSelectedExecution) ? (
+          !isSelectedExecution &&
+          !isLoading) ? (
         <div
           className={
             dateSelected && dateSelected[0] !== '0'
@@ -234,8 +248,11 @@ export default function CustomDate({
           />
         </div>
       ) : (
-        ((isDarkGreenExecution && !isSelectedExecution) ||
-          (isDarkGreenExecution && isToday && !isSelectedExecution)) && (
+        ((isDarkGreenExecution && !isSelectedExecution && !isLoading) ||
+          (isDarkGreenExecution &&
+            isToday &&
+            !isSelectedExecution &&
+            !isLoading)) && (
           <div
             className={
               dateSelected && dateSelected[0] !== '0'

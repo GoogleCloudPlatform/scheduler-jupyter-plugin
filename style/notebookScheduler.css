@@ -777,7 +777,7 @@ body[data-jp-theme-light='true'].scroll-fix-header {
 .calender-status-icon {
   margin: 0 auto;
   position: absolute;
-  bottom: 4px;
+  bottom: 3px;
   left: 17px;
 }
 
@@ -842,4 +842,9 @@ body[data-jp-theme-light='true'].scroll-fix-header {
   display: flex;
   margin: 15px 0;
   padding-bottom: 9px;
+}
+
+.input-file-description-text {
+  padding-top: 9px;
+  width: 512px;
 }
