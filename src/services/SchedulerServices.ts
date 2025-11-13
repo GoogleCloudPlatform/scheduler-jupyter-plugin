@@ -43,13 +43,15 @@ export class SchedulerService {
   static readonly listClustersAPIService = async (
     setClusterList: (value: string[]) => void,
     setIsLoadingKernelDetail: (value: boolean) => void,
+    projectId: string,
+    region: string,
     nextPageToken?: string,
     previousClustersList?: (value: string[]) => void
   ) => {
     const pageToken = nextPageToken ?? '';
     setIsLoadingKernelDetail(true);
     try {
-      const serviceURL = `clusterList?pageSize=500&pageToken=${pageToken}`;
+      const serviceURL = `clusterList?pageSize=500&pageToken=${pageToken}&projectId=${projectId}&regionId=${region}`;
 
       const formattedResponse: any = await requestAPI(serviceURL);
       let transformClusterListData = [];
@@ -73,7 +75,9 @@ export class SchedulerService {
         this.listClustersAPIService(
           setClusterList,
           formattedResponse.nextPageToken,
-          allClustersData
+          allClustersData,
+          projectId,
+          region
         );
       } else {
         const transformClusterListData = allClustersData;

@@ -27,7 +27,7 @@ async def test_list_clusters(monkeypatch, jp_fetch):
     response = await jp_fetch(
         "scheduler-plugin",
         "clusterList",
-        params={"pageSize": mock_page_size, "pageToken": mock_page_token},
+        params={"pageSize": mock_page_size, "pageToken": mock_page_token, "projectId": mock_project_id, "regionId": mock_region_id},
     )
     assert response.code == 200
     payload = json.loads(response.body)

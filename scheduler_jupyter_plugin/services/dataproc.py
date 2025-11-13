@@ -41,10 +41,10 @@ class Client:
             "Authorization": f"Bearer {self._access_token}",
         }
 
-    async def list_clusters(self, page_size, page_token):
+    async def list_clusters(self, page_size, page_token, project_id, region_id):
         try:
             dataproc_url = await urls.gcp_service_url(DATAPROC_SERVICE_NAME)
-            api_endpoint = f"{dataproc_url}/v1/projects/{self.project_id}/regions/{self.region_id}/clusters?pageSize={page_size}&pageToken={page_token}"
+            api_endpoint = f"{dataproc_url}/v1/projects/{project_id}/regions/{region_id}/clusters?pageSize={page_size}&pageToken={page_token}"
             async with self.client_session.get(
                 api_endpoint, headers=self.create_headers()
             ) as response:
