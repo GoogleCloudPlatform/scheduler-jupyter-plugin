@@ -41,6 +41,7 @@ from scheduler_jupyter_plugin.commons.constants import (
     UTF8,
     PAYLOAD_JSON_FILE_PATH,
     HTTP_STATUS_OK,
+    DATAPROC_SERVICE_NAME,
 )
 from scheduler_jupyter_plugin.models.models import DescribeJob
 from scheduler_jupyter_plugin.services import airflow
@@ -147,7 +148,50 @@ class Client:
             self.log.exception(f"Error uploading file to GCS: {str(error)}")
             raise IOError(str(error))
 
-    def prepare_dag(self, job, gcs_dag_bucket, dag_file, project_id, region_id):
+    async def get_cluster_details(self, cluster_name):
+        try:
+            dataproc_url = await urls.gcp_service_url(DATAPROC_SERVICE_NAME)
+            api_endpoint = f"{dataproc_url}/v1/projects/{self.project_id}/regions/{self.region_id}/clusters/{cluster_name}"
+            async with self.client_session.get(
+                api_endpoint, headers=self.create_headers()
+            ) as response:
+                if response.status == HTTP_STATUS_OK:
+                    resp = await response.json()
+                    return resp
+                else:
+                    return {
+                        "error": f"Failed to fetch clusters: {response.status} {await response.text()}"
+                    }
+
+        except Exception as e:
+            self.log.exception("Error fetching cluster list")
+            return {"error": str(e)}
+
+    async def multi_tenant_user_service_account(self, cluster_name):
+        cluster_data = await self.get_cluster_details(cluster_name)
+        if cluster_data:
+            multi_tenant = (
+                cluster_data.get("config", {})
+                .get("softwareConfig", {})
+                .get("properties", {})
+                .get("dataproc:dataproc.dynamic.multi.tenancy.enabled", "false")
+            )
+            if multi_tenant == "true":
+                cmd = "config get account"
+                process = await async_run_gcloud_subcommand(cmd)
+                user_email = process.strip()
+                service_account = (
+                    cluster_data.get("config", {})
+                    .get("securityConfig", {})
+                    .get("identityConfig", {})
+                    .get("userServiceAccountMapping", {})
+                    .get(user_email, "")
+                )
+                if service_account:
+                    return service_account
+        return ""
+
+    async def prepare_dag(self, job, gcs_dag_bucket, dag_file, project_id, region_id):
         self.log.info("Generating dag file")
         DAG_TEMPLATE_CLUSTER_V1 = "pysparkJobTemplate-v1.txt"
         DAG_TEMPLATE_SERVERLESS_V1 = "pysparkBatchTemplate-v1.txt"
@@ -181,6 +225,11 @@ class Client:
             parameters = ""
         if job.local_kernel is False:
             if job.mode_selected == "cluster":
+                multi_tenant_service_account = (
+                    await self.multi_tenant_user_service_account(
+                        cluster_name=job.cluster_name
+                    )
+                )
                 template = environment.get_template(DAG_TEMPLATE_CLUSTER_V1)
                 if not job.input_filename.startswith(GCS):
                     input_notebook = f"gs://{gcs_dag_bucket}/dataproc-notebooks/{job.name}/input_notebooks/{job.input_filename}"
@@ -198,6 +247,7 @@ class Client:
                     start_date=start_date,
                     parameters=parameters,
                     time_zone=time_zone,
+                    multi_tenant_service_account=multi_tenant_service_account,
                 )
             else:
                 template = environment.get_template(DAG_TEMPLATE_SERVERLESS_V1)
@@ -402,7 +452,7 @@ class Client:
                 destination_dir=f"dataproc-notebooks/{job_name}/dag_details",
             )
 
-            file_path = self.prepare_dag(
+            file_path = await self.prepare_dag(
                 job, gcs_dag_bucket, dag_file, project_id, region_id
             )
             await self.upload_to_gcs(

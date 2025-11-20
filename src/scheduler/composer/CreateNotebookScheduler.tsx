@@ -717,7 +717,7 @@ const CreateNotebookScheduler = ({
                   setProjectId(projectId ?? '')
                 }
                 fetchFunc={projectListAPI}
-                label="Project ID*"
+                label="Composer Project ID*"
                 // Always show the clear indicator and hide the dropdown arrow
                 // make it very clear that this is an autocomplete.
                 sx={{
@@ -740,6 +740,7 @@ const CreateNotebookScheduler = ({
                 editMode={editMode}
                 loaderRegion={loaderRegion}
                 setLoaderRegion={setLoaderRegion}
+                label={'Composer Region*'}
               />
             </div>
             {!region && <ErrorMessage message="Region is required" />}

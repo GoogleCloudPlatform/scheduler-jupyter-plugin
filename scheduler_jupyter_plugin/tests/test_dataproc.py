@@ -33,7 +33,7 @@ async def test_list_clusters(monkeypatch, jp_fetch):
     payload = json.loads(response.body)
     assert (
         payload["api_endpoint"]
-        == f"https://dataproc.googleapis.com//v1/projects/credentials-project/regions/{mock_region_id}/clusters?pageSize={mock_page_size}&pageToken={mock_page_token}"
+        == f"https://dataproc.googleapis.com//v1/projects/{mock_project_id}/regions/{mock_region_id}/clusters?pageSize={mock_page_size}&pageToken={mock_page_token}"
     )
     assert payload["headers"]["Authorization"] == f"Bearer mock-token"
 

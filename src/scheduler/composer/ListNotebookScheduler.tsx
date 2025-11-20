@@ -829,7 +829,7 @@ function ListNotebookScheduler({
                   handleProjectIdChange(projectId);
                 }}
                 fetchFunc={projectListAPI}
-                label="Project ID*"
+                label="Composer Project ID*"
                 // Always show the clear indicator and hide the dropdown arrow
                 // make it very clear that this is an autocomplete.
                 sx={{
@@ -855,6 +855,7 @@ function ListNotebookScheduler({
                 onRegionChange={region => handleRegionChange(region)}
                 loaderRegion={loaderRegion}
                 setLoaderRegion={setLoaderRegion}
+                label={'Composer Region*'}
               />
             </div>
             {!region && (

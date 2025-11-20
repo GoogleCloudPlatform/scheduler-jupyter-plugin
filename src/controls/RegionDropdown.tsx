@@ -38,6 +38,7 @@ type Props = {
   /** Initial loading flag for region */
   loaderRegion?: boolean;
   setLoaderRegion?: (value: boolean) => void;
+  label?: string;
 };
 
 /**
@@ -53,7 +54,8 @@ export function RegionDropdown(props: Props) {
     regionDisable,
     fromPage,
     loaderRegion,
-    setLoaderRegion
+    setLoaderRegion,
+    label
   } = props;
   let regionStrList: string[] = [];
 
@@ -77,7 +79,7 @@ export function RegionDropdown(props: Props) {
       renderInput={params => (
         <TextField
           {...params}
-          label={'Region*'}
+          label={label || 'Region*'}
           InputProps={{
             ...params.InputProps,
             endAdornment: (
