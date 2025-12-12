@@ -96,7 +96,9 @@ const NotebookSchedulerComponent = ({
       const currentTime = new Date().getTime();
       const formattedCurrentTime = formatTimestamp(currentTime);
       setJobNameSelected(`job_${formattedCurrentTime}`);
-      setInputFileSelected(context.path);
+      setInputFileSelected(
+        app.serviceManager.contents.localPath(context.localPath)
+      );
     }
   }, [notebookSelector]);
 

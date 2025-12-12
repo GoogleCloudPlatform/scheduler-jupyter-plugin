@@ -541,7 +541,9 @@ const CreateNotebookScheduler = ({
    */
   useEffect(() => {
     if (context !== '') {
-      setInputFileSelected(context.path);
+      setInputFileSelected(
+        app.serviceManager.contents.localPath(context.localPath)
+      );
     }
     setJobNameSelected('');
     if (!editMode) {
