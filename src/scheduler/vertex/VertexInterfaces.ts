@@ -54,6 +54,7 @@ export interface ICreatePayload {
   disk_size: string;
   gcs_notebook_source?: string;
   kms_key_name?: string;
+  enable_public_ip?: boolean;
 }
 export interface IVertexScheduleList {
   displayName: string;

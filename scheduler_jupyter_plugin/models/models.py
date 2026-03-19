@@ -85,6 +85,7 @@ class DescribeVertexJob(BaseModel):
     disk_type: str = None
     disk_size: str = None
     kms_key_name: Optional[str] = None
+    enable_public_ip: Optional[bool] = True
 
     @classmethod
     def from_dict(cls, data):
@@ -121,6 +122,7 @@ class DescribeUpdateVertexJob(BaseModel):
     disk_type: Optional[str] = None
     disk_size: Optional[str] = None
     kms_key_name: Optional[str] = None
+    enable_public_ip: Optional[bool] = True
 
     @classmethod
     def from_dict(cls, data):
