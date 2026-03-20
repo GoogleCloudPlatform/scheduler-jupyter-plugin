@@ -170,7 +170,7 @@ class Client:
                 ]["networkSpec"]["network"] = job.network
                 payload["createNotebookExecutionJobRequest"]["notebookExecutionJob"][
                     "customEnvironmentSpec"
-                ]["networkSpec"]["enableInternetAccess"] = "TRUE"
+                ]["networkSpec"]["enableInternetAccess"] = "TRUE" if job.enable_public_ip else "FALSE"
             if job.subnetwork and job.network:
                 payload["createNotebookExecutionJobRequest"]["notebookExecutionJob"][
                     "customEnvironmentSpec"
@@ -524,6 +524,7 @@ class Client:
                 custom_environment_spec["networkSpec"] = {
                     "network": data.network,
                     "subnetwork": data.subnetwork,
+                    "enableInternetAccess": "TRUE" if data.enable_public_ip else "FALSE",
                 }
             if data.disk_size or data.disk_type:
                 custom_environment_spec["persistentDiskSpec"] = {

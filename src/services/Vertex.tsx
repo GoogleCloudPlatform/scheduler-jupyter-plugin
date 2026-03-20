@@ -680,7 +680,13 @@ export class VertexServices {
               .diskSizeGb,
           gcs_notebook_source:
             formattedResponse.createNotebookExecutionJobRequest
-              .notebookExecutionJob.gcsNotebookSource.uri
+              .notebookExecutionJob.gcsNotebookSource.uri,
+          enable_public_ip:
+            formattedResponse.createNotebookExecutionJobRequest
+              .notebookExecutionJob.customEnvironmentSpec?.networkSpec
+              ?.enableInternetAccess === 'TRUE'
+              ? true
+              : false
         };
         setCreateCompleted(false);
         setRegion(region);

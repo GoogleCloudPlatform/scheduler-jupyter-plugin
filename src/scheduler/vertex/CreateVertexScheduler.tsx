@@ -28,7 +28,8 @@ import {
   FormControlLabel,
   Typography,
   Box,
-  CircularProgress
+  CircularProgress,
+  Checkbox
 } from '@mui/material';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -195,6 +196,7 @@ const CreateVertexScheduler = ({
     network: string;
     subnetwork: string;
   } | null>(null);
+  const [enablePublicIp, setEnablePublicIp] = useState<boolean>(true);
   const [maxRuns, setMaxRuns] = useState<string>('');
   const [scheduleField, setScheduleField] = useState<string>('');
   const [scheduleMode, setScheduleMode] = useState<scheduleMode>('runNow');
@@ -897,7 +899,8 @@ const CreateVertexScheduler = ({
       end_time: endDate,
       disk_type: diskTypeSelected,
       disk_size: diskSize,
-      parameters: [] // Parameters for future scope
+      parameters: [], // Parameters for future scope
+      enable_public_ip: enablePublicIp
     };
 
     if (acceleratorType && acceleratedCount) {
@@ -1070,6 +1073,7 @@ const CreateVertexScheduler = ({
       setDiskTypeSelected(vertexSchedulerDetails.disk_type);
       setDiskSize(vertexSchedulerDetails.disk_size);
       setGcsPath(vertexSchedulerDetails.gcs_notebook_source ?? '');
+      setEnablePublicIp(vertexSchedulerDetails.enable_public_ip ?? true);
 
       if ('kms_key_name' in vertexSchedulerDetails) {
         if (vertexSchedulerDetails.kms_key_name) {
@@ -1869,6 +1873,27 @@ const CreateVertexScheduler = ({
               )}
             </>
           )}
+
+          {/* Enable public IP checkbox - shown when custom network is configured */}
+          {(primaryNetworkSelected || sharedNetworkSelected) && (
+            <div className="create-scheduler-form-element">
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={enablePublicIp}
+                    onChange={(e) => setEnablePublicIp(e.target.checked)}
+                    disabled={editMode}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    Enable public IP (allows internet access)
+                  </Typography>
+                }
+              />
+            </div>
+          )}
+
           <div className="create-scheduler-label">Schedule</div>
           <div className="create-scheduler-form-element">
             <FormControl>
