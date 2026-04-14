@@ -1881,7 +1881,7 @@ const CreateVertexScheduler = ({
                 control={
                   <Checkbox
                     checked={enablePublicIp}
-                    onChange={(e) => setEnablePublicIp(e.target.checked)}
+                    onChange={e => setEnablePublicIp(e.target.checked)}
                     disabled={editMode}
                   />
                 }
