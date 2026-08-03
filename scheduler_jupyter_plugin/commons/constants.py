@@ -34,6 +34,11 @@ VERTEX_STORAGE_BUCKET = "vertex-schedules"
 UTF8 = "utf-8"
 PAYLOAD_JSON_FILE_PATH = "payload.json"
 
+WORKFLOW_ORCHESTRATION_REQUIRED_APIS = [
+    COMPOSER_SERVICE_NAME,
+    STORAGE_SERVICE_NAME
+]
+
 # Composer environment name restrictions are documented here:
 #  https://cloud.google.com/composer/docs/reference/rest/v1/projects.locations.environments#resource:-environment
 COMPOSER_ENVIRONMENT_REGEXP = re.compile("[a-z]([a-z0-9-]{0,62}[a-z0-9])?")
@@ -59,3 +64,6 @@ HTTP_STATUS_NO_CONTENT = 204
 HTTP_STATUS_FORBIDDEN = 403
 HTTP_STATUS_INTERNAL_SERVER_ERROR = 500
 HTTP_STATUS_NETWORK_CONNECT_TIMEOUT = 599
+HTTP_STATUS_BAD_REQUEST = 400
+HTTP_STATUS_UNAUTHORIZED = 401
+HTTP_STATUS_NOT_FOUND = 404
