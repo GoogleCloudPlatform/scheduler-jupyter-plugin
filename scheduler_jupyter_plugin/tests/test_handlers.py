@@ -20,4 +20,7 @@ async def test_get_default_settings(jp_fetch):
     assert response.code == 200
     payload = json.loads(response.body)
     assert "log_path" in payload
-    assert payload["log_path"] is ""
+    assert payload["log_path"] == ""
+    assert "enable_workflow_scheduler" in payload
+    assert payload["enable_workflow_scheduler"] is False
+

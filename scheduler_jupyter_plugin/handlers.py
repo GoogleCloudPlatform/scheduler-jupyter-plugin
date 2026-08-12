@@ -29,7 +29,7 @@ from google.cloud.jupyter_config.config import (
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.serverapp import ServerApp
 from jupyter_server.utils import url_path_join
-from traitlets import Undefined, Unicode
+from traitlets import Bool, Undefined, Unicode
 from traitlets.config import SingletonConfigurable
 
 from scheduler_jupyter_plugin import credentials, urls
@@ -54,6 +54,12 @@ class SchedulerPluginConfig(SingletonConfigurable):
         "",
         config=True,
         help="File to log ServerApp and Scheduler Jupyter Plugin events.",
+    )
+
+    enable_workflow_scheduler = Bool(
+        False,
+        config=True,
+        help="Enable workflow scheduler module backend endpoints and services.",
     )
 
 
@@ -216,11 +222,17 @@ def setup_handlers(web_app):
         "updatePlugin": version.UpdatePackageController,
         "api/cloudKms/listKeyRings": cloudKms.KeyRingsController,
         "api/cloudKms/listCryptoKeys": cloudKms.CryptoKeysController,
-        
-        # Orchestration workflow related endpoints
-        "api/workflow-orchestration/api-enable-check": workflow.CheckApiStatusController,
-        "api/workflow-orchestration/load-workflow-files": workflow.LoadWorkflowFilesController,
-        "api/workflow-orchestration/initialize-pipeline": workflow.InitializeOrchestrationPipelineController,
     }
+
+    plugin_config = SchedulerPluginConfig.instance()
+    if plugin_config.enable_workflow_scheduler:
+        handlersMap.update(
+            {
+                "api/workflow-orchestration/api-enable-check": workflow.CheckApiStatusController,
+                "api/workflow-orchestration/load-workflow-files": workflow.LoadWorkflowFilesController,
+                "api/workflow-orchestration/initialize-pipeline": workflow.InitializeOrchestrationPipelineController,
+            }
+        )
+
     handlers = [(full_path(name), handler) for name, handler in handlersMap.items()]
     web_app.add_handlers(host_pattern, handlers)

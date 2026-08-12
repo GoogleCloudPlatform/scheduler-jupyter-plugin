@@ -27,16 +27,20 @@ import {
   IThemeManager,
   Notification
 } from '@jupyterlab/apputils';
+import { Panel } from '@lumino/widgets';
 import { ILauncher } from '@jupyterlab/launcher';
 import { NotebookScheduler } from './scheduler/NotebookScheduler';
 import { SchedulerNotebookButtonExtension } from './controls/SchedulerNotebookButtonExtension';
 import {
   PLUGIN_NAME,
   TITLE_LAUNCHER_CATEGORY,
-  VERSION_DETAIL
+  VERSION_DETAIL,
+  WORKFLOW_WIDGET_TITLE
 } from './utils/Const';
-import { iconScheduledNotebooks } from './utils/Icons';
+import { WorkflowWidget } from './workflows/widgets/WorkflowWidget';
 import { requestAPI } from './handler/Handler';
+
+import { iconScheduledNotebooks } from './utils/Icons';
 
 /**
  * Initialization data for the scheduler-jupyter-plugin extension.
@@ -55,8 +59,26 @@ const plugin: JupyterFrontEndPlugin<void> = {
     console.log('JupyterLab extension scheduler-jupyter-plugin is activated!');
 
     const { commands } = app;
-
     const createNotebookJobsComponentCommand = 'create-notebook-jobs-component';
+
+    let panelWorkflow: Panel | null = null;
+
+    try {
+      const pluginSettings: any = await requestAPI('settings');
+      if (pluginSettings?.enable_workflow_scheduler) {
+        const workflowWidget = new WorkflowWidget(themeManager);
+
+        panelWorkflow = new Panel();
+        panelWorkflow.id = 'workflow-tab';
+        panelWorkflow.title.caption = WORKFLOW_WIDGET_TITLE;
+        panelWorkflow.title.className = 'panel-icons-custom-style';
+        panelWorkflow.addWidget(workflowWidget);
+
+        app.shell.add(panelWorkflow, 'left', { rank: 1003 });
+      }
+    } catch (error) {
+      console.error('Failed to fetch scheduler plugin settings:', error);
+    }
 
     async function jupyterVersionCheck() {
       try {
@@ -144,7 +166,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
       });
     }
 
-    await jupyterVersionCheck();
+    app.restored
+      .then(async () => {
+        await jupyterVersionCheck();
+      })
+      .catch(error => {
+        console.error('Error during app restoration:', error);
+      });
   }
 };
 
