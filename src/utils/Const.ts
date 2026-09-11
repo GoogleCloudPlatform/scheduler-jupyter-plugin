@@ -28,6 +28,9 @@ export const API_HEADER_CONTENT_TYPE = 'application/json';
 export const PLUGIN_ID = 'scheduler_jupyter_plugin:plugin';
 export const GCS_PLUGIN_ID = 'gcs-jupyter-plugin:plugin';
 
+export const WORKFLOW_WIDGET_ID = 'workflow-widget';
+export const WORKFLOW_WIDGET_TITLE = 'Cloud Workflows';
+
 export const gcpServiceUrls = (async () => {
   return await ConfigService.gcpServiceUrlsAPI();
 })();

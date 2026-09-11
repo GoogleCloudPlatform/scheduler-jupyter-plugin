@@ -23,6 +23,7 @@ from scheduler_jupyter_plugin.commons.constants import (
     METASTORE_SERVICE_NAME,
     STORAGE_SERVICE_DEFAULT_URL,
     STORAGE_SERVICE_NAME,
+    COMPOSER_SERVICE_NAME,
 )
 
 
@@ -38,6 +39,7 @@ async def map():
     storage_url = await gcp_service_url(
         STORAGE_SERVICE_NAME, default_url=STORAGE_SERVICE_DEFAULT_URL
     )
+    composer_url = await gcp_service_url(COMPOSER_SERVICE_NAME)
     url_map = {
         "dataproc_url": dataproc_url,
         "compute_url": compute_url,
@@ -46,6 +48,7 @@ async def map():
         "cloudresourcemanager_url": cloudresourcemanager_url,
         "datacatalog_url": datacatalog_url,
         "storage_url": storage_url,
+        "composer_url": composer_url,
     }
     return url_map
 

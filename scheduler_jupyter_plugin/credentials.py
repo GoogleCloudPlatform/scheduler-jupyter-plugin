@@ -53,7 +53,6 @@ async def _gcp_region():
 async def get_cached():
     credentials = {
         "project_id": "",
-        "project_number": 0,
         "region_id": "",
         "access_token": "",
         "config_error": 0,
@@ -64,7 +63,6 @@ async def get_cached():
         credentials["region_id"] = await _gcp_region()
         credentials["config_error"] = 0
         credentials["access_token"] = await _gcp_credentials()
-        credentials["project_number"] = await _gcp_project_number()
     except Exception as ex:
         logging.error(f"Error getting gcloud config: {ex}")
 

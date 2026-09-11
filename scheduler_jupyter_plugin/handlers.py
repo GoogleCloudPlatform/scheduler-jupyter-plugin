@@ -13,8 +13,12 @@
 # limitations under the License.
 
 
+import asyncio
 import json
+import os
 import subprocess
+from tornado import web
+from jupyter_server.base.handlers import APIHandler
 
 
 import tornado
@@ -25,7 +29,7 @@ from google.cloud.jupyter_config.config import (
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.serverapp import ServerApp
 from jupyter_server.utils import url_path_join
-from traitlets import Undefined, Unicode
+from traitlets import Bool, Undefined, Unicode
 from traitlets.config import SingletonConfigurable
 
 from scheduler_jupyter_plugin import credentials, urls
@@ -41,6 +45,7 @@ from scheduler_jupyter_plugin.controllers import (
     storage,
     version,
     vertex,
+    workflow,
 )
 
 
@@ -49,6 +54,12 @@ class SchedulerPluginConfig(SingletonConfigurable):
         "",
         config=True,
         help="File to log ServerApp and Scheduler Jupyter Plugin events.",
+    )
+
+    enable_workflow_scheduler = Bool(
+        False,
+        config=True,
+        help="Enable workflow scheduler module backend endpoints and services.",
     )
 
 
@@ -66,13 +77,12 @@ class SettingsHandler(APIHandler):
             #
             # We explicitly filter out the `config`, `parent`, and `log` attributes
             # that are inherited from the `SingletonConfigurable` class.
-            if t not in scheduler_plugin_config and t not in [
-                "config",
-                "parent",
-                "log",
-            ]:
-                if v.default_value is not Undefined:
-                    scheduler_plugin_config[t] = v.default_value
+            if (
+                t not in scheduler_plugin_config
+                and t not in ["config", "parent", "log"]
+                and v.default_value is not Undefined
+            ):
+                scheduler_plugin_config[t] = v.default_value
 
         self.log.info(f"SchedulerPluginConfig: {scheduler_plugin_config}")
         self.finish(json.dumps(scheduler_plugin_config))
@@ -86,23 +96,39 @@ class CredentialsHandler(APIHandler):
     async def get(self):
         cached = await credentials.get_cached()
         if cached["config_error"] == 1:
-            self.log.exception(f"Error fetching credentials from gcloud")
+            self.log.exception("Error fetching credentials from gcloud")
         self.finish(json.dumps(cached))
 
 
 class LoginHandler(APIHandler):
     @tornado.web.authenticated
     async def post(self):
-        cmd = "gcloud auth login"
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
-        )
-        output, _ = process.communicate()
-        # Check if the authentication was successful
-        if process.returncode == 0:
-            self.finish({"login": "SUCCEEDED"})
-        else:
-            self.finish({"login": "FAILED"})
+        cmd = ["gcloud", "auth", "login"]
+        
+        try:
+            loop = asyncio.get_event_loop()
+            
+            def run_gcloud():
+                process = subprocess.Popen(
+                    cmd, 
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.PIPE
+                )
+                _stdout, _stderr = process.communicate()
+                return process.returncode
+
+            # Awaiting the loop execution
+            returncode = await loop.run_in_executor(None, run_gcloud)
+            
+            if returncode == 0:
+                self.finish({"login": "SUCCEEDED"})
+            else:
+                self.finish({"login": "FAILED"})
+                
+        except Exception as e:
+            self.set_status(500)
+            self.finish({"login": "FAILED", "error": str(e)})
 
 
 class ConfigHandler(APIHandler):
@@ -128,7 +154,6 @@ class UrlHandler(APIHandler):
         url_map = await urls.map()
         self.log.info(f"Service URL map: {url_map}")
         self.finish(url_map)
-        return
 
 
 class LogHandler(APIHandler):
@@ -198,5 +223,16 @@ def setup_handlers(web_app):
         "api/cloudKms/listKeyRings": cloudKms.KeyRingsController,
         "api/cloudKms/listCryptoKeys": cloudKms.CryptoKeysController,
     }
+
+    plugin_config = SchedulerPluginConfig.instance()
+    if plugin_config.enable_workflow_scheduler:
+        handlersMap.update(
+            {
+                "api/workflow-orchestration/api-enable-check": workflow.CheckApiStatusController,
+                "api/workflow-orchestration/load-workflow-files": workflow.LoadWorkflowFilesController,
+                "api/workflow-orchestration/initialize-pipeline": workflow.InitializeOrchestrationPipelineController,
+            }
+        )
+
     handlers = [(full_path(name), handler) for name, handler in handlersMap.items()]
     web_app.add_handlers(host_pattern, handlers)
