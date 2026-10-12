@@ -101,11 +101,15 @@ class TestExecuteMethod(unittest.IsolatedAsyncioTestCase):
 
 
 @pytest.mark.parametrize("returncode, expected_result", [(0, 0)])
-async def test_download_dag_output(monkeypatch, returncode, expected_result, jp_fetch):
+async def test_download_dag_output(
+    monkeypatch, tmp_path, returncode, expected_result, jp_fetch
+):
 
     async def mock_list_dag_run_task(*args, **kwargs):
         return None
 
+    # The output notebook is written to the current directory.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(airflow.Client, "list_dag_run_task", mock_list_dag_run_task)
     monkeypatch.setattr(aiohttp, "ClientSession", MockClientSession)
     mock_blob = MagicMock()
@@ -124,7 +128,7 @@ async def test_download_dag_output(monkeypatch, returncode, expected_result, jp_
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
 
     response = await jp_fetch(
         "scheduler-plugin",
@@ -151,7 +155,7 @@ async def test_invalid_composer_name(monkeypatch, jp_fetch):
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -179,7 +183,7 @@ async def test_invalid_bucket_name(monkeypatch, jp_fetch):
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -207,7 +211,7 @@ async def test_invalid_dag_id(monkeypatch, jp_fetch):
     mock_dag_id = "mock/dag/id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -235,7 +239,7 @@ async def test_invalid_dag_run_id(monkeypatch, jp_fetch):
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "a/b/c/d"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -260,6 +264,44 @@ async def test_invalid_dag_run_id(monkeypatch, jp_fetch):
 INVALID_ENVIRONMENT_NAMES = ["my env", "--my-env", "my-env;x", "My-Env", ""]
 INVALID_REGION_IDS = ["us central1", "--region=x", "us-central1;x", "US-CENTRAL1", ""]
 INVALID_PROJECT_IDS = ["my project", "-my-project", "my-project;x", "My-Project", ""]
+
+
+def _download_output_params(**overrides):
+    params = {
+        "composer": "mock-composer",
+        "bucket_name": "mock-bucket",
+        "dag_id": "mock-dag-id",
+        "dag_run_id": "258",
+        "project_id": "mock-project-id",
+        "region_id": "us-central1",
+    }
+    params.update(overrides)
+    return params
+
+
+@pytest.mark.parametrize(
+    "overrides, error",
+    [({"project_id": p}, f"Invalid project ID: {p}") for p in INVALID_PROJECT_IDS]
+    + [({"region_id": r}, f"Invalid region: {r}") for r in INVALID_REGION_IDS],
+)
+async def test_download_output_rejects_invalid_project_or_region(
+    monkeypatch, overrides, error, jp_fetch
+):
+    mocks.patch_mocks(monkeypatch)
+    download_dag_output = AsyncMock()
+    monkeypatch.setattr(executor.Client, "download_dag_output", download_dag_output)
+
+    response = await jp_fetch(
+        "scheduler-plugin",
+        "downloadOutput",
+        params=_download_output_params(**overrides),
+        method="POST",
+        allow_nonstandard_methods=True,
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": error}
+    download_dag_output.assert_not_awaited()
 
 
 # Header lines are skipped, then the first column is the package name.

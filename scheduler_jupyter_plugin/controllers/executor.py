@@ -78,6 +78,10 @@ class DownloadOutputController(APIHandler):
                 raise ValueError(f"Invalid DAG ID: {dag_id}")
             if not re.fullmatch(constants.DAG_RUN_ID_REGEXP, dag_run_id):
                 raise ValueError(f"Invalid DAG Run ID: {dag_run_id}")
+            if not re.fullmatch(constants.PROJECT_ID_REGEXP, project_id):
+                raise ValueError(f"Invalid project ID: {project_id}")
+            if not re.fullmatch(constants.REGION_ID_REGEXP, region_id):
+                raise ValueError(f"Invalid region: {region_id}")
             async with aiohttp.ClientSession() as client_session:
                 client = executor.Client(
                     await credentials.get_cached(), self.log, client_session
