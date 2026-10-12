@@ -16,6 +16,7 @@ import subprocess
 import sys
 
 from scheduler_jupyter_plugin.commons.config import async_run_system_command
+from scheduler_jupyter_plugin.commons.constants import PLUGIN_PYPI_NAME
 
 
 class Client:
@@ -34,9 +35,9 @@ class Client:
         self.region_id = credentials["region_id"]
         self.client_session = client_session
 
-    async def get_latest_version(self, package_name):
+    async def get_latest_version(self):
         try:
-            api_endpoint = f"https://pypi.org/pypi/{package_name}/json"
+            api_endpoint = f"https://pypi.org/pypi/{PLUGIN_PYPI_NAME}/json"
             async with self.client_session.get(api_endpoint, timeout=3) as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -46,16 +47,16 @@ class Client:
             self.log.exception("Error fetching jupyter lab version")
             return {"error": str(e)}
 
-    async def upgrade_package(self, package_name):
+    async def upgrade_package(self):
         try:
             print("installing...................")
             await async_run_system_command(
-                [sys.executable, "-m", "pip", "install", "--upgrade", package_name]
+                [sys.executable, "-m", "pip", "install", "--upgrade", PLUGIN_PYPI_NAME]
             )
         except subprocess.CalledProcessError as e:
-            self.log.exception(f"Failed to upgrade package: {package_name}")
+            self.log.exception(f"Failed to upgrade package: {PLUGIN_PYPI_NAME}")
             raise e
 
-    async def update_plugin(self, package_name):
-        await self.upgrade_package(package_name)
+    async def update_plugin(self):
+        await self.upgrade_package()
         return {"status": "ok"}

@@ -65,6 +65,9 @@ PROJECT_ID_REGEXP = re.compile(
 # Packages the Composer flow may install; same list as the frontend.
 COMPOSER_REQUIRED_PACKAGES = ("apache-airflow-providers-papermill", "ipykernel")
 
+# The only package updatePlugin may install.
+PLUGIN_PYPI_NAME = "scheduler-jupyter-plugin"
+
 HTTP_STATUS_OK = 200
 HTTP_STATUS_NO_CONTENT = 204
 HTTP_STATUS_FORBIDDEN = 403
