@@ -89,10 +89,18 @@ class DownloadOutputController(APIHandler):
 
 class CheckRequiredPackagesController(APIHandler):
     @tornado.web.authenticated
-    async def get(self):
+    async def post(self):
         try:
             composer_environment_name = self.get_argument("composer_environment_name")
             region_id = self.get_argument("region_id")
+            if not re.fullmatch(
+                constants.COMPOSER_ENVIRONMENT_REGEXP, composer_environment_name
+            ):
+                raise ValueError(
+                    f"Invalid environment name: {composer_environment_name}"
+                )
+            if not re.fullmatch(constants.REGION_ID_REGEXP, region_id):
+                raise ValueError(f"Invalid region: {region_id}")
             async with aiohttp.ClientSession() as client_session:
                 client = executor.Client(
                     await credentials.get_cached(), self.log, client_session

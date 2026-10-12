@@ -1058,7 +1058,8 @@ export class SchedulerService {
 
         if (errorObject?.status === HTTP_STATUS_BAD_REQUEST) {
           const installedPackageList: any = await requestAPI(
-            `checkRequiredPackages?composer_environment_name=${composerSelectedList}&region_id=${region}`
+            `checkRequiredPackages?composer_environment_name=${composerSelectedList}&region_id=${region}`,
+            { method: 'POST' }
           );
           if (installedPackageList.length > 0) {
             Notification.error(

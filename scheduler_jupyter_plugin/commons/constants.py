@@ -57,6 +57,9 @@ DAG_RUN_ID_REGEXP = re.compile("[a-zA-Z0-9_:\\+.-]+")
 # Vertex AI region ID, e.g. "us-central1".
 REGION_ID_REGEXP = re.compile("[a-z]+-[a-z]+[0-9]+")
 
+# Packages the Composer flow may install; same list as the frontend.
+COMPOSER_REQUIRED_PACKAGES = ("apache-airflow-providers-papermill", "ipykernel")
+
 HTTP_STATUS_OK = 200
 HTTP_STATUS_NO_CONTENT = 204
 HTTP_STATUS_FORBIDDEN = 403

@@ -20,10 +20,12 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import aiohttp
 import pytest
 from google.cloud import storage
+from tornado.httpclient import HTTPClientError
 
 from scheduler_jupyter_plugin import credentials
 from scheduler_jupyter_plugin.services import airflow
 from scheduler_jupyter_plugin.services import executor
+from scheduler_jupyter_plugin.tests import mocks
 from scheduler_jupyter_plugin.tests.test_airflow import MockClientSession
 
 
@@ -251,3 +253,90 @@ async def test_invalid_dag_run_id(monkeypatch, jp_fetch):
     assert "status" not in payload
     assert "error" in payload
     assert "Invalid DAG Run ID" in payload["error"]
+
+
+INVALID_ENVIRONMENT_NAMES = ["my env", "--my-env", "my-env;x", "My-Env", ""]
+INVALID_REGION_IDS = ["us central1", "--region=x", "us-central1;x", "US-CENTRAL1", ""]
+
+
+# Header lines are skipped, then the first column is the package name.
+LIST_PACKAGES_OUTPUT = """\
+PACKAGE                             VERSION
+----------------------------------  -------
+apache-airflow-providers-papermill  3.6.0
+pandas                              2.1.4
+"""
+
+
+def _mock_gcloud(monkeypatch, output=""):
+    mocks.patch_mocks(monkeypatch)
+    run_gcloud = AsyncMock(return_value=output)
+    monkeypatch.setattr(executor, "async_run_gcloud_subcommand", run_gcloud)
+    return run_gcloud
+
+
+async def test_check_required_packages_rejects_get(monkeypatch, jp_fetch):
+    run_gcloud = _mock_gcloud(monkeypatch)
+
+    with pytest.raises(HTTPClientError) as error:
+        await jp_fetch(
+            "scheduler-plugin",
+            "checkRequiredPackages",
+            params={"composer_environment_name": "my-env", "region_id": "us-central1"},
+        )
+
+    assert error.value.code == 405
+    run_gcloud.assert_not_awaited()
+
+
+async def test_check_required_packages_lists_missing_packages(monkeypatch, jp_fetch):
+    run_gcloud = _mock_gcloud(monkeypatch, LIST_PACKAGES_OUTPUT)
+
+    response = await jp_fetch(
+        "scheduler-plugin",
+        "checkRequiredPackages",
+        params={"composer_environment_name": "my-env", "region_id": "us-central1"},
+        method="POST",
+        allow_nonstandard_methods=True,
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == ["ipykernel"]
+    run_gcloud.assert_awaited_once_with(
+        "beta composer environments list-packages my-env --location us-central1"
+    )
+
+
+@pytest.mark.parametrize(
+    "params, error",
+    [
+        (
+            {"composer_environment_name": name, "region_id": "us-central1"},
+            f"Invalid environment name: {name}",
+        )
+        for name in INVALID_ENVIRONMENT_NAMES
+    ]
+    + [
+        (
+            {"composer_environment_name": "my-env", "region_id": region},
+            f"Invalid region: {region}",
+        )
+        for region in INVALID_REGION_IDS
+    ],
+)
+async def test_check_required_packages_rejects_invalid_input(
+    monkeypatch, params, error, jp_fetch
+):
+    run_gcloud = _mock_gcloud(monkeypatch, LIST_PACKAGES_OUTPUT)
+
+    response = await jp_fetch(
+        "scheduler-plugin",
+        "checkRequiredPackages",
+        params=params,
+        method="POST",
+        allow_nonstandard_methods=True,
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": error}
+    run_gcloud.assert_not_awaited()
