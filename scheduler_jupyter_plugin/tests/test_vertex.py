@@ -14,7 +14,7 @@
 
 import json
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 import aiohttp
 
 import pytest
@@ -247,56 +247,51 @@ async def test_trigger_schedule(monkeypatch, returncode, expected_result, jp_fet
     assert payload == expected_result
 
 
-class TestCreateJobScheduleMethod(unittest.TestCase):
+class TestCreateJobScheduleMethod(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.instance = vertex.Client
+        self.instance = _make_client()
         self.input_data = {
             "cloud_storage_bucket": "test_cloud_storage_bucket",
             "display_name": "test_display_name",
             "input_filename": "test_input_file",
         }
 
-    @patch("models.DescribeVertexJob")
-    @patch("vertex.Client.upload_to_gcs")
-    @patch("vertex.Client.create_schedule")
+    @patch.object(vertex.Client, "create_schedule", new_callable=AsyncMock)
+    @patch.object(vertex.Client, "upload_to_gcs", new_callable=AsyncMock)
     async def test_create_job_schedule(
         self,
-        mock_create_schedule,
         mock_upload_to_gcs,
-        mock_describe_vertex_job,
+        mock_create_schedule,
     ):
-        mock_job = MagicMock()
-        mock_job.cloud_storage_bucket = "test_storage_bucket"
-        mock_job.display_name = "test_job_name"
-        mock_job.input_filename = "test_input_file"
-        mock_describe_vertex_job.return_value = mock_job
+        mock_upload_to_gcs.return_value = "test_display_name/test_input_file"
+        mock_create_schedule.return_value = {}
 
         result = await self.instance.create_job_schedule(self.input_data)
 
         self.assertEqual(result, {})
+        mock_upload_to_gcs.assert_awaited_once_with(
+            "test_cloud_storage_bucket", "test_input_file", "test_display_name"
+        )
+        mock_create_schedule.assert_awaited_once_with(
+            ANY, "test_display_name/test_input_file", "test_cloud_storage_bucket"
+        )
 
 
-class TestCreateNewBucketMethod(unittest.TestCase):
+class TestCreateNewBucketMethod(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.instance = vertex.Client
+        self.instance = _make_client()
         self.input_data = {
             "bucket_name": "test_bucket_name",
         }
 
-    @patch("models.DescribeBucketName")
-    @patch("vertex.Client.create_gcs_bucket")
-    async def test_create_new_bucket(
-        self,
-        mock_gcs_bucket,
-        mock_describe_bucket_name,
-    ):
-        mock_data = MagicMock()
-        mock_data.bucket_name = "test_bucket_name"
-        mock_describe_bucket_name.return_value = mock_data
+    @patch.object(vertex.Client, "create_gcs_bucket", new_callable=AsyncMock)
+    async def test_create_new_bucket(self, mock_create_gcs_bucket):
+        mock_create_gcs_bucket.return_value = None
 
         result = await self.instance.create_new_bucket(self.input_data)
 
-        self.assertEqual(result, {})
+        self.assertIsNone(result)
+        mock_create_gcs_bucket.assert_awaited_once_with("test_bucket_name")
 
 
 def _make_client():

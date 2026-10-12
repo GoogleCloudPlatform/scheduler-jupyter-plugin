@@ -52,9 +52,17 @@ async def mock_config(field_name):
     return None
 
 
-class TestExecuteMethod(unittest.TestCase):
+class TestExecuteMethod(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.instance = executor.Client
+        self.instance = executor.Client(
+            {
+                "access_token": "mock-token",
+                "project_id": "credentials-project",
+                "region_id": "us-central1",
+            },
+            MagicMock(),
+            MagicMock(),
+        )
         self.input_data = {
             "dag_id": "test_dag_id",
             "name": "test_job_name",
@@ -62,36 +70,30 @@ class TestExecuteMethod(unittest.TestCase):
             "input_filename": "test_input_file",
         }
 
-    @patch("models.DescribeJob")
-    @patch("executor.Client.get_bucket", new_callable=AsyncMock)
-    @patch("executor.Client.check_file_exists")
-    @patch("executor.Client.upload_papermill_to_gcs")
-    @patch("executor.Client.upload_input_file_to_gcs")
-    @patch("executor.Client.prepare_dag")
-    @patch("executor.Client.upload_dag_to_gcs")
+    @patch.object(executor.Client, "upload_to_gcs", new_callable=AsyncMock)
+    @patch.object(executor.Client, "prepare_dag", new_callable=AsyncMock)
+    @patch.object(executor.Client, "create_payload")
+    @patch.object(executor.Client, "check_file_exists", new_callable=AsyncMock)
+    @patch.object(executor.Client, "get_bucket", new_callable=AsyncMock)
     async def test_execute_success(
         self,
-        mock_upload_dag_to_gcs,
-        mock_prepare_dag,
-        mock_upload_input_file_to_gcs,
-        mock_upload_papermill_to_gcs,
-        mock_check_file_exists,
         mock_get_bucket,
-        mock_describe_job,
+        mock_check_file_exists,
+        mock_create_payload,
+        mock_prepare_dag,
+        mock_upload_to_gcs,
     ):
-        mock_job = MagicMock()
-        mock_job.dag_id = "test_dag_id"
-        mock_job.name = "test_job_name"
-        mock_job.composer_environment_name = "test_env"
-        mock_job.input_filename = "test_input_file"
-        mock_describe_job.return_value = mock_job
-
         mock_get_bucket.return_value = "test_bucket"
         mock_check_file_exists.return_value = True
 
-        result = await self.instance.execute(self.input_data)
+        result = await self.instance.execute(
+            self.input_data, "mock-project-id", "us-central1"
+        )
 
         self.assertEqual(result, {"status": 0})
+        mock_get_bucket.assert_awaited_once_with(
+            "test_env", "mock-project-id", "us-central1"
+        )
 
 
 @pytest.mark.parametrize("returncode, expected_result", [(0, 0)])
