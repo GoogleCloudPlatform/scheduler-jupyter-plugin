@@ -31,6 +31,15 @@ class ExecutorController(APIHandler):
             input_data = self.get_json_body()
             project_id = self.get_argument("project_id")
             region_id = self.get_argument("region_id")
+            if not re.fullmatch(constants.REGION_ID_REGEXP, region_id):
+                raise ValueError(f"Invalid region: {region_id}")
+            if not re.fullmatch(constants.PROJECT_ID_REGEXP, project_id):
+                raise ValueError(f"Invalid project ID: {project_id}")
+            packages = input_data.get("packages_to_install") or []
+            if not isinstance(packages, list) or any(
+                p not in constants.COMPOSER_REQUIRED_PACKAGES for p in packages
+            ):
+                raise ValueError(f"Invalid packages_to_install: {packages}")
             if not re.fullmatch(
                 constants.COMPOSER_ENVIRONMENT_REGEXP,
                 input_data["composer_environment_name"],

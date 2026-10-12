@@ -57,6 +57,11 @@ DAG_RUN_ID_REGEXP = re.compile("[a-zA-Z0-9_:\\+.-]+")
 # Vertex AI region ID, e.g. "us-central1".
 REGION_ID_REGEXP = re.compile("[a-z]+-[a-z]+[0-9]+")
 
+# Plain or domain-scoped (example.com:my-project) project ID; never starts with "-".
+PROJECT_ID_REGEXP = re.compile(
+    r"(?:[a-z0-9][a-z0-9.-]*[a-z0-9]:)?[a-z][a-z0-9-]{4,28}[a-z0-9]"
+)
+
 # Packages the Composer flow may install; same list as the frontend.
 COMPOSER_REQUIRED_PACKAGES = ("apache-airflow-providers-papermill", "ipykernel")
 

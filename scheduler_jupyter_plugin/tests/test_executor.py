@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import re
 import subprocess
 import unittest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -23,6 +24,7 @@ from google.cloud import storage
 from tornado.httpclient import HTTPClientError
 
 from scheduler_jupyter_plugin import credentials
+from scheduler_jupyter_plugin.commons import constants
 from scheduler_jupyter_plugin.services import airflow
 from scheduler_jupyter_plugin.services import executor
 from scheduler_jupyter_plugin.tests import mocks
@@ -257,6 +259,7 @@ async def test_invalid_dag_run_id(monkeypatch, jp_fetch):
 
 INVALID_ENVIRONMENT_NAMES = ["my env", "--my-env", "my-env;x", "My-Env", ""]
 INVALID_REGION_IDS = ["us central1", "--region=x", "us-central1;x", "US-CENTRAL1", ""]
+INVALID_PROJECT_IDS = ["my project", "-my-project", "my-project;x", "My-Project", ""]
 
 
 # Header lines are skipped, then the first column is the package name.
@@ -340,3 +343,132 @@ async def test_check_required_packages_rejects_invalid_input(
     assert response.code == 200
     assert json.loads(response.body) == {"error": error}
     run_gcloud.assert_not_awaited()
+
+
+def _job_payload(**fields):
+    payload = {
+        "input_filename": "notebook.ipynb",
+        "composer_environment_name": "my-env",
+        "name": "my_job",
+        "dag_id": "my-dag-id",
+        "local_kernel": True,
+    }
+    payload.update(fields)
+    return payload
+
+
+def _mock_execute(monkeypatch):
+    mocks.patch_mocks(monkeypatch)
+    execute = AsyncMock(return_value={"status": 0})
+    monkeypatch.setattr(executor.Client, "execute", execute)
+    return execute
+
+
+async def _create_job_scheduler(
+    jp_fetch, payload, project_id="my-project", region_id="us-central1"
+):
+    return await jp_fetch(
+        "scheduler-plugin",
+        "createJobScheduler",
+        params={"project_id": project_id, "region_id": region_id},
+        method="POST",
+        body=json.dumps(payload),
+    )
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {},
+        {"packages_to_install": []},
+        {"packages_to_install": ["ipykernel"]},
+        {
+            "packages_to_install": [
+                "apache-airflow-providers-papermill",
+                "ipykernel",
+            ]
+        },
+    ],
+)
+async def test_create_job_scheduler_accepts_valid_input(monkeypatch, fields, jp_fetch):
+    execute = _mock_execute(monkeypatch)
+    payload = _job_payload(**fields)
+
+    response = await _create_job_scheduler(jp_fetch, payload)
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"status": 0}
+    execute.assert_awaited_once_with(payload, "my-project", "us-central1")
+
+
+@pytest.mark.parametrize("region_id", INVALID_REGION_IDS)
+async def test_create_job_scheduler_rejects_invalid_region(
+    monkeypatch, region_id, jp_fetch
+):
+    execute = _mock_execute(monkeypatch)
+
+    response = await _create_job_scheduler(
+        jp_fetch, _job_payload(), region_id=region_id
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": f"Invalid region: {region_id}"}
+    execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize("project_id", INVALID_PROJECT_IDS)
+async def test_create_job_scheduler_rejects_invalid_project_id(
+    monkeypatch, project_id, jp_fetch
+):
+    execute = _mock_execute(monkeypatch)
+
+    response = await _create_job_scheduler(
+        jp_fetch, _job_payload(), project_id=project_id
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": f"Invalid project ID: {project_id}"}
+    execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "packages_to_install",
+    [["pandas"], ["ipykernel", "pandas"], ["ipykernel==6.0.0"], "ipykernel"],
+)
+async def test_create_job_scheduler_rejects_packages_outside_allowlist(
+    monkeypatch, packages_to_install, jp_fetch
+):
+    execute = _mock_execute(monkeypatch)
+
+    response = await _create_job_scheduler(
+        jp_fetch, _job_payload(packages_to_install=packages_to_install)
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {
+        "error": f"Invalid packages_to_install: {packages_to_install}"
+    }
+    execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "project_id",
+    ["my-project", "abc123", "a" + "b" * 28 + "c", "example.com:my-project"],
+)
+def test_project_id_regexp_accepts_valid_ids(project_id):
+    assert re.fullmatch(constants.PROJECT_ID_REGEXP, project_id)
+
+
+@pytest.mark.parametrize(
+    "project_id",
+    INVALID_PROJECT_IDS
+    + [
+        "abc12",
+        "a" + "b" * 29 + "c",
+        "1project",
+        "my-project-",
+        "example.com:-my-project",
+    ],
+)
+def test_project_id_regexp_rejects_invalid_ids(project_id):
+    assert not re.fullmatch(constants.PROJECT_ID_REGEXP, project_id)
