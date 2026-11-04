@@ -15,6 +15,9 @@ scheduler_jupyter_plugin/_version.py
 ui-tests/test-results/
 ui-tests/playwright-report/
 
+# Unit tests
+mock-file_*
+
 # Created by https://www.gitignore.io/api/python
 # Edit at https://www.gitignore.io/?templates=python
 
@@ -86,6 +89,8 @@ target/
 
 # pyenv
 .python-version
+.venv/
+venv/
 
 # celery beat schedule file
 celerybeat-schedule

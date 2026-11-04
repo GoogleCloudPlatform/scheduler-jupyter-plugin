@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import re
 import subprocess
 import unittest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -20,10 +21,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import aiohttp
 import pytest
 from google.cloud import storage
+from tornado.httpclient import HTTPClientError
 
 from scheduler_jupyter_plugin import credentials
+from scheduler_jupyter_plugin.commons import constants
 from scheduler_jupyter_plugin.services import airflow
 from scheduler_jupyter_plugin.services import executor
+from scheduler_jupyter_plugin.tests import mocks
 from scheduler_jupyter_plugin.tests.test_airflow import MockClientSession
 
 
@@ -52,9 +56,17 @@ async def mock_config(field_name):
     return None
 
 
-class TestExecuteMethod(unittest.TestCase):
+class TestExecuteMethod(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.instance = executor.Client
+        self.instance = executor.Client(
+            {
+                "access_token": "mock-token",
+                "project_id": "credentials-project",
+                "region_id": "us-central1",
+            },
+            MagicMock(),
+            MagicMock(),
+        )
         self.input_data = {
             "dag_id": "test_dag_id",
             "name": "test_job_name",
@@ -62,44 +74,42 @@ class TestExecuteMethod(unittest.TestCase):
             "input_filename": "test_input_file",
         }
 
-    @patch("models.DescribeJob")
-    @patch("executor.Client.get_bucket", new_callable=AsyncMock)
-    @patch("executor.Client.check_file_exists")
-    @patch("executor.Client.upload_papermill_to_gcs")
-    @patch("executor.Client.upload_input_file_to_gcs")
-    @patch("executor.Client.prepare_dag")
-    @patch("executor.Client.upload_dag_to_gcs")
+    @patch.object(executor.Client, "upload_to_gcs", new_callable=AsyncMock)
+    @patch.object(executor.Client, "prepare_dag", new_callable=AsyncMock)
+    @patch.object(executor.Client, "create_payload")
+    @patch.object(executor.Client, "check_file_exists", new_callable=AsyncMock)
+    @patch.object(executor.Client, "get_bucket", new_callable=AsyncMock)
     async def test_execute_success(
         self,
-        mock_upload_dag_to_gcs,
-        mock_prepare_dag,
-        mock_upload_input_file_to_gcs,
-        mock_upload_papermill_to_gcs,
-        mock_check_file_exists,
         mock_get_bucket,
-        mock_describe_job,
+        mock_check_file_exists,
+        mock_create_payload,
+        mock_prepare_dag,
+        mock_upload_to_gcs,
     ):
-        mock_job = MagicMock()
-        mock_job.dag_id = "test_dag_id"
-        mock_job.name = "test_job_name"
-        mock_job.composer_environment_name = "test_env"
-        mock_job.input_filename = "test_input_file"
-        mock_describe_job.return_value = mock_job
-
         mock_get_bucket.return_value = "test_bucket"
         mock_check_file_exists.return_value = True
 
-        result = await self.instance.execute(self.input_data)
+        result = await self.instance.execute(
+            self.input_data, "mock-project-id", "us-central1"
+        )
 
         self.assertEqual(result, {"status": 0})
+        mock_get_bucket.assert_awaited_once_with(
+            "test_env", "mock-project-id", "us-central1"
+        )
 
 
 @pytest.mark.parametrize("returncode, expected_result", [(0, 0)])
-async def test_download_dag_output(monkeypatch, returncode, expected_result, jp_fetch):
+async def test_download_dag_output(
+    monkeypatch, tmp_path, returncode, expected_result, jp_fetch
+):
 
     async def mock_list_dag_run_task(*args, **kwargs):
         return None
 
+    # The output notebook is written to the current directory.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(airflow.Client, "list_dag_run_task", mock_list_dag_run_task)
     monkeypatch.setattr(aiohttp, "ClientSession", MockClientSession)
     mock_blob = MagicMock()
@@ -118,7 +128,7 @@ async def test_download_dag_output(monkeypatch, returncode, expected_result, jp_
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
 
     response = await jp_fetch(
         "scheduler-plugin",
@@ -145,7 +155,7 @@ async def test_invalid_composer_name(monkeypatch, jp_fetch):
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -173,7 +183,7 @@ async def test_invalid_bucket_name(monkeypatch, jp_fetch):
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -201,7 +211,7 @@ async def test_invalid_dag_id(monkeypatch, jp_fetch):
     mock_dag_id = "mock/dag/id"
     mock_dag_run_id = "258"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -229,7 +239,7 @@ async def test_invalid_dag_run_id(monkeypatch, jp_fetch):
     mock_dag_id = "mock-dag-id"
     mock_dag_run_id = "a/b/c/d"
     mock_project_id = "mock-project-id"
-    mock_region_id = "mock-region-id"
+    mock_region_id = "us-central1"
     response = await jp_fetch(
         "scheduler-plugin",
         "downloadOutput",
@@ -249,3 +259,258 @@ async def test_invalid_dag_run_id(monkeypatch, jp_fetch):
     assert "status" not in payload
     assert "error" in payload
     assert "Invalid DAG Run ID" in payload["error"]
+
+
+INVALID_ENVIRONMENT_NAMES = ["my env", "--my-env", "my-env;x", "My-Env", ""]
+INVALID_REGION_IDS = ["us central1", "--region=x", "us-central1;x", "US-CENTRAL1", ""]
+INVALID_PROJECT_IDS = ["my project", "-my-project", "my-project;x", "My-Project", ""]
+
+
+def _download_output_params(**overrides):
+    params = {
+        "composer": "mock-composer",
+        "bucket_name": "mock-bucket",
+        "dag_id": "mock-dag-id",
+        "dag_run_id": "258",
+        "project_id": "mock-project-id",
+        "region_id": "us-central1",
+    }
+    params.update(overrides)
+    return params
+
+
+@pytest.mark.parametrize(
+    "overrides, error",
+    [({"project_id": p}, f"Invalid project ID: {p}") for p in INVALID_PROJECT_IDS]
+    + [({"region_id": r}, f"Invalid region: {r}") for r in INVALID_REGION_IDS],
+)
+async def test_download_output_rejects_invalid_project_or_region(
+    monkeypatch, overrides, error, jp_fetch
+):
+    mocks.patch_mocks(monkeypatch)
+    download_dag_output = AsyncMock()
+    monkeypatch.setattr(executor.Client, "download_dag_output", download_dag_output)
+
+    response = await jp_fetch(
+        "scheduler-plugin",
+        "downloadOutput",
+        params=_download_output_params(**overrides),
+        method="POST",
+        allow_nonstandard_methods=True,
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": error}
+    download_dag_output.assert_not_awaited()
+
+
+# Header lines are skipped, then the first column is the package name.
+LIST_PACKAGES_OUTPUT = """\
+PACKAGE                             VERSION
+----------------------------------  -------
+apache-airflow-providers-papermill  3.6.0
+pandas                              2.1.4
+"""
+
+
+def _mock_gcloud(monkeypatch, output=""):
+    mocks.patch_mocks(monkeypatch)
+    run_gcloud = AsyncMock(return_value=output)
+    monkeypatch.setattr(executor, "async_run_gcloud_subcommand", run_gcloud)
+    return run_gcloud
+
+
+async def test_check_required_packages_rejects_get(monkeypatch, jp_fetch):
+    run_gcloud = _mock_gcloud(monkeypatch)
+
+    with pytest.raises(HTTPClientError) as error:
+        await jp_fetch(
+            "scheduler-plugin",
+            "checkRequiredPackages",
+            params={"composer_environment_name": "my-env", "region_id": "us-central1"},
+        )
+
+    assert error.value.code == 405
+    run_gcloud.assert_not_awaited()
+
+
+async def test_check_required_packages_lists_missing_packages(monkeypatch, jp_fetch):
+    run_gcloud = _mock_gcloud(monkeypatch, LIST_PACKAGES_OUTPUT)
+
+    response = await jp_fetch(
+        "scheduler-plugin",
+        "checkRequiredPackages",
+        params={"composer_environment_name": "my-env", "region_id": "us-central1"},
+        method="POST",
+        allow_nonstandard_methods=True,
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == ["ipykernel"]
+    run_gcloud.assert_awaited_once_with(
+        "beta composer environments list-packages my-env --location us-central1"
+    )
+
+
+@pytest.mark.parametrize(
+    "params, error",
+    [
+        (
+            {"composer_environment_name": name, "region_id": "us-central1"},
+            f"Invalid environment name: {name}",
+        )
+        for name in INVALID_ENVIRONMENT_NAMES
+    ]
+    + [
+        (
+            {"composer_environment_name": "my-env", "region_id": region},
+            f"Invalid region: {region}",
+        )
+        for region in INVALID_REGION_IDS
+    ],
+)
+async def test_check_required_packages_rejects_invalid_input(
+    monkeypatch, params, error, jp_fetch
+):
+    run_gcloud = _mock_gcloud(monkeypatch, LIST_PACKAGES_OUTPUT)
+
+    response = await jp_fetch(
+        "scheduler-plugin",
+        "checkRequiredPackages",
+        params=params,
+        method="POST",
+        allow_nonstandard_methods=True,
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": error}
+    run_gcloud.assert_not_awaited()
+
+
+def _job_payload(**fields):
+    payload = {
+        "input_filename": "notebook.ipynb",
+        "composer_environment_name": "my-env",
+        "name": "my_job",
+        "dag_id": "my-dag-id",
+        "local_kernel": True,
+    }
+    payload.update(fields)
+    return payload
+
+
+def _mock_execute(monkeypatch):
+    mocks.patch_mocks(monkeypatch)
+    execute = AsyncMock(return_value={"status": 0})
+    monkeypatch.setattr(executor.Client, "execute", execute)
+    return execute
+
+
+async def _create_job_scheduler(
+    jp_fetch, payload, project_id="my-project", region_id="us-central1"
+):
+    return await jp_fetch(
+        "scheduler-plugin",
+        "createJobScheduler",
+        params={"project_id": project_id, "region_id": region_id},
+        method="POST",
+        body=json.dumps(payload),
+    )
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {},
+        {"packages_to_install": []},
+        {"packages_to_install": ["ipykernel"]},
+        {
+            "packages_to_install": [
+                "apache-airflow-providers-papermill",
+                "ipykernel",
+            ]
+        },
+    ],
+)
+async def test_create_job_scheduler_accepts_valid_input(monkeypatch, fields, jp_fetch):
+    execute = _mock_execute(monkeypatch)
+    payload = _job_payload(**fields)
+
+    response = await _create_job_scheduler(jp_fetch, payload)
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"status": 0}
+    execute.assert_awaited_once_with(payload, "my-project", "us-central1")
+
+
+@pytest.mark.parametrize("region_id", INVALID_REGION_IDS)
+async def test_create_job_scheduler_rejects_invalid_region(
+    monkeypatch, region_id, jp_fetch
+):
+    execute = _mock_execute(monkeypatch)
+
+    response = await _create_job_scheduler(
+        jp_fetch, _job_payload(), region_id=region_id
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": f"Invalid region: {region_id}"}
+    execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize("project_id", INVALID_PROJECT_IDS)
+async def test_create_job_scheduler_rejects_invalid_project_id(
+    monkeypatch, project_id, jp_fetch
+):
+    execute = _mock_execute(monkeypatch)
+
+    response = await _create_job_scheduler(
+        jp_fetch, _job_payload(), project_id=project_id
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {"error": f"Invalid project ID: {project_id}"}
+    execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "packages_to_install",
+    [["pandas"], ["ipykernel", "pandas"], ["ipykernel==6.0.0"], "ipykernel"],
+)
+async def test_create_job_scheduler_rejects_packages_outside_allowlist(
+    monkeypatch, packages_to_install, jp_fetch
+):
+    execute = _mock_execute(monkeypatch)
+
+    response = await _create_job_scheduler(
+        jp_fetch, _job_payload(packages_to_install=packages_to_install)
+    )
+
+    assert response.code == 200
+    assert json.loads(response.body) == {
+        "error": f"Invalid packages_to_install: {packages_to_install}"
+    }
+    execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "project_id",
+    ["my-project", "abc123", "a" + "b" * 28 + "c", "example.com:my-project"],
+)
+def test_project_id_regexp_accepts_valid_ids(project_id):
+    assert re.fullmatch(constants.PROJECT_ID_REGEXP, project_id)
+
+
+@pytest.mark.parametrize(
+    "project_id",
+    INVALID_PROJECT_IDS
+    + [
+        "abc12",
+        "a" + "b" * 29 + "c",
+        "1project",
+        "my-project-",
+        "example.com:-my-project",
+    ],
+)
+def test_project_id_regexp_rejects_invalid_ids(project_id):
+    assert not re.fullmatch(constants.PROJECT_ID_REGEXP, project_id)

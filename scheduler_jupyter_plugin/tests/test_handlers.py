@@ -14,6 +14,9 @@
 
 import json
 
+import pytest
+from tornado.httpclient import HTTPClientError
+
 
 async def test_get_default_settings(jp_fetch):
     response = await jp_fetch("scheduler-plugin", "settings")
@@ -21,3 +24,14 @@ async def test_get_default_settings(jp_fetch):
     payload = json.loads(response.body)
     assert "log_path" in payload
     assert payload["log_path"] is ""
+
+
+async def test_configuration_route_is_not_registered(jp_fetch):
+    with pytest.raises(HTTPClientError) as error:
+        await jp_fetch(
+            "scheduler-plugin",
+            "configuration",
+            method="POST",
+            body=json.dumps({"projectId": "my-project", "region": "us-central1"}),
+        )
+    assert error.value.code == 404

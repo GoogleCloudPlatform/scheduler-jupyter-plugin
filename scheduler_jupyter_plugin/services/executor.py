@@ -42,6 +42,7 @@ from scheduler_jupyter_plugin.commons.constants import (
     PAYLOAD_JSON_FILE_PATH,
     HTTP_STATUS_OK,
     DATAPROC_SERVICE_NAME,
+    COMPOSER_REQUIRED_PACKAGES,
 )
 from scheduler_jupyter_plugin.models.models import DescribeJob
 from scheduler_jupyter_plugin.services import airflow
@@ -344,14 +345,13 @@ class Client:
 
     async def check_package_in_env(self, composer_environment_name, region_id):
         try:
-            packages = ["apache-airflow-providers-papermill", "ipykernel"]
             packages_to_install = []
             cmd = f"beta composer environments list-packages {composer_environment_name} --location {region_id}"
             process = await async_run_gcloud_subcommand(cmd)
             installed_packages = set(
                 line.split()[0].lower() for line in process.splitlines()[2:]
             )
-            for package in packages:
+            for package in COMPOSER_REQUIRED_PACKAGES:
                 if package.lower() not in installed_packages:
                     packages_to_install.append(package)
                 else:

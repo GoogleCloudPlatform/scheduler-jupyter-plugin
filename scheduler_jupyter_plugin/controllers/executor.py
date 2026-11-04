@@ -31,6 +31,15 @@ class ExecutorController(APIHandler):
             input_data = self.get_json_body()
             project_id = self.get_argument("project_id")
             region_id = self.get_argument("region_id")
+            if not re.fullmatch(constants.REGION_ID_REGEXP, region_id):
+                raise ValueError(f"Invalid region: {region_id}")
+            if not re.fullmatch(constants.PROJECT_ID_REGEXP, project_id):
+                raise ValueError(f"Invalid project ID: {project_id}")
+            packages = input_data.get("packages_to_install") or []
+            if not isinstance(packages, list) or any(
+                p not in constants.COMPOSER_REQUIRED_PACKAGES for p in packages
+            ):
+                raise ValueError(f"Invalid packages_to_install: {packages}")
             if not re.fullmatch(
                 constants.COMPOSER_ENVIRONMENT_REGEXP,
                 input_data["composer_environment_name"],
@@ -69,6 +78,10 @@ class DownloadOutputController(APIHandler):
                 raise ValueError(f"Invalid DAG ID: {dag_id}")
             if not re.fullmatch(constants.DAG_RUN_ID_REGEXP, dag_run_id):
                 raise ValueError(f"Invalid DAG Run ID: {dag_run_id}")
+            if not re.fullmatch(constants.PROJECT_ID_REGEXP, project_id):
+                raise ValueError(f"Invalid project ID: {project_id}")
+            if not re.fullmatch(constants.REGION_ID_REGEXP, region_id):
+                raise ValueError(f"Invalid region: {region_id}")
             async with aiohttp.ClientSession() as client_session:
                 client = executor.Client(
                     await credentials.get_cached(), self.log, client_session
@@ -89,10 +102,18 @@ class DownloadOutputController(APIHandler):
 
 class CheckRequiredPackagesController(APIHandler):
     @tornado.web.authenticated
-    async def get(self):
+    async def post(self):
         try:
             composer_environment_name = self.get_argument("composer_environment_name")
             region_id = self.get_argument("region_id")
+            if not re.fullmatch(
+                constants.COMPOSER_ENVIRONMENT_REGEXP, composer_environment_name
+            ):
+                raise ValueError(
+                    f"Invalid environment name: {composer_environment_name}"
+                )
+            if not re.fullmatch(constants.REGION_ID_REGEXP, region_id):
+                raise ValueError(f"Invalid region: {region_id}")
             async with aiohttp.ClientSession() as client_session:
                 client = executor.Client(
                     await credentials.get_cached(), self.log, client_session

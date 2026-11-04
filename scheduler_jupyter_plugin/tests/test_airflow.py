@@ -14,14 +14,14 @@
 
 import json
 import subprocess
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import aiohttp
 
 from scheduler_jupyter_plugin.tests import mocks
 
 import pytest
-from google.cloud import jupyter_config
+from google.cloud import jupyter_config, storage
 
 from scheduler_jupyter_plugin import credentials
 from scheduler_jupyter_plugin.services import airflow
@@ -95,42 +95,53 @@ async def test_list_dag_with_invalid_credentials(monkeypatch, jp_fetch):
     payload = json.loads(response.body)
     assert payload == {"error": "Missing required credentials"}
 
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "from_page, expected_status", [(None, 0), ("some_page", 0)]
+
+@pytest.mark.parametrize(
+    "from_page, deletes_through_airflow", [(None, True), ("some_page", False)]
+)
+async def test_delete_job(monkeypatch, from_page, deletes_through_airflow, jp_fetch):
+    deleted_endpoints = []
+
+    class DeleteClientSession(MockClientSession):
+        def delete(self, api_endpoint, headers=None):
+            deleted_endpoints.append(api_endpoint)
+            return mocks.MockResponse({})
+
+    mocks.patch_mocks(monkeypatch)
+    monkeypatch.setattr(aiohttp, "ClientSession", DeleteClientSession)
+    monkeypatch.setattr(
+        airflow.Client, "get_airflow_uri_and_bucket", mock_get_airflow_uri_and_bucket
     )
-    async def test_delete_job(monkeypatch, from_page, expected_status, jp_fetch):
-        monkeypatch.setattr(
-            airflow.Client,
-            "get_airflow_uri_and_bucket",
-            mock_get_airflow_uri_and_bucket,
-        )
-        mock_delete = AsyncMock()
-        mock_delete.return_value.__aenter__.return_value.status = 200
-        mock_client_session = MagicMock()
-        mock_client_session.delete = mock_delete
-        monkeypatch.setattr(
-            "dagDelete.aiohttp.ClientSession", lambda: mock_client_session
-        )
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_bucket.blob.return_value = mock_blob
-        mock_storage_client = MagicMock()
-        mock_storage_client.bucket.return_value = mock_bucket
-        monkeypatch.setattr("dagDelete.storage.Client", lambda: mock_storage_client)
-        response = await jp_fetch(
-            "scheduler-plugin",
-            "dagDelete",
-            method="DELETE",
-            params={
-                "composer": "mock-composer",
-                "dag_id": "mock_dag_id",
-                "from_page": from_page,
-            },
-        )
-        assert response.code == 200
-        payload = json.loads(response.body)
-        assert payload["status"] == expected_status
+    mock_bucket = MagicMock()
+    mock_blob = MagicMock()
+    mock_bucket.blob.return_value = mock_blob
+    mock_storage_client = MagicMock()
+    mock_storage_client.bucket.return_value = mock_bucket
+    monkeypatch.setattr(storage, "Client", lambda: mock_storage_client)
+    params = {
+        "composer": "mock-composer",
+        "dag_id": "mock_dag_id",
+        "project_id": "mock-project-id",
+        "region_id": "mock-region-id",
+    }
+    if from_page is not None:
+        params["from_page"] = from_page
+    response = await jp_fetch(
+        "scheduler-plugin",
+        "dagDelete",
+        method="DELETE",
+        params=params,
+    )
+    assert response.code == 200
+    payload = json.loads(response.body)
+    assert payload["status"] == 0
+    mock_storage_client.bucket.assert_called_once_with("mock_bucket")
+    mock_bucket.blob.assert_called_once_with("dags/dag_mock_dag_id.py")
+    mock_blob.delete.assert_called_once()
+    if deletes_through_airflow:
+        assert deleted_endpoints == ["https://mock_airflow_uri/api/v1/dags/mock_dag_id"]
+    else:
+        assert deleted_endpoints == []
 
 
 class MockClientSession:

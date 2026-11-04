@@ -18,10 +18,6 @@ import subprocess
 
 
 import tornado
-from google.cloud.jupyter_config.config import (
-    async_run_gcloud_subcommand,
-    clear_gcloud_cache,
-)
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.serverapp import ServerApp
 from jupyter_server.utils import url_path_join
@@ -105,21 +101,6 @@ class LoginHandler(APIHandler):
             self.finish({"login": "FAILED"})
 
 
-class ConfigHandler(APIHandler):
-    @tornado.web.authenticated
-    async def post(self):
-        ERROR_MESSAGE = "Project and region update "
-        input_data = self.get_json_body()
-        project_id = input_data["projectId"]
-        region = input_data["region"]
-        try:
-            await async_run_gcloud_subcommand(f"config set project {project_id}")
-            await async_run_gcloud_subcommand(f"config set dataproc/region {region}")
-            self.finish({"config": ERROR_MESSAGE + "successful"})
-        except subprocess.CalledProcessError:
-            self.finish({"config": ERROR_MESSAGE + "failed"})
-
-
 class UrlHandler(APIHandler):
     url = {}
 
@@ -153,7 +134,6 @@ def setup_handlers(web_app):
         "settings": SettingsHandler,
         "credentials": CredentialsHandler,
         "login": LoginHandler,
-        "configuration": ConfigHandler,
         "getGcpServiceUrls": UrlHandler,
         "log": LogHandler,
         "composerList": composer.EnvironmentListController,
