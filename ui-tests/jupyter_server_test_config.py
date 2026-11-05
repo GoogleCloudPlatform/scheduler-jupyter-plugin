@@ -22,5 +22,9 @@ from jupyterlab.galata import configure_jupyter_server
 
 configure_jupyter_server(c)
 
+# Jupyter Server exits at startup when run as root. The release build runs
+# the UI tests as root inside a container, so allow it here.
+c.ServerApp.allow_root = True
+
 # Uncomment to set server log level to debug level
 # c.ServerApp.log_level = "DEBUG"
