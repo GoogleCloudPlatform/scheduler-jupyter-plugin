@@ -30,7 +30,8 @@ import {
   ISchedulerData,
   IVertexScheduleRunList
 } from './VertexInterfaces';
-import { LOG_EXPLORER_BASE_URL, VIEW_CLOUD_LOGS } from '../../utils/Const';
+import { VIEW_CLOUD_LOGS } from '../../utils/Const';
+import { getLogsUrl } from '../../utils/ConsoleLinks';
 import { handleErrorToast } from '../../utils/ErrorUtils';
 import CustomDate from '../common/CustomDate';
 import { VertexServices } from '../../services/Vertex';
@@ -166,14 +167,13 @@ const VertexExecutionHistory = ({
    *  Redirect to pantheon cloud logs
    */
   const handleLogs = async () => {
-    const logExplorerUrl = new URL(LOG_EXPLORER_BASE_URL);
-    logExplorerUrl.searchParams.set('query', `SEARCH("${jobRunId}")`);
-    if (jobRunsData?.startDate) {
-      logExplorerUrl.searchParams.set('cursorTimestamp', jobRunsData.startDate);
-    }
-    logExplorerUrl.searchParams.set('project', projectId);
+    const logExplorerUrl = getLogsUrl(
+      projectId,
+      jobRunId,
+      jobRunsData?.startDate
+    );
     try {
-      window.open(logExplorerUrl.toString());
+      window.open(logExplorerUrl);
     } catch (error) {
       console.error('Failed to open Log Explorer window:', error);
     }

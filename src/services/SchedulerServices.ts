@@ -22,9 +22,9 @@ import {
   ABORT_MESSAGE,
   HTTP_STATUS_BAD_REQUEST,
   HTTP_STATUS_FORBIDDEN,
-  pattern,
   scheduleMode
 } from '../utils/Const';
+import { getServiceDisabled } from '../utils/ConsoleLinks';
 import {
   IClusterAPIResponse,
   IComposerAPIResponse,
@@ -213,11 +213,11 @@ export class SchedulerService {
         try {
           setComposerEnvData([]);
           if (formattedResponse.error.code === HTTP_STATUS_FORBIDDEN) {
-            const url = formattedResponse.error.message.match(pattern);
-            if (url && url.length > 0) {
+            const serviceDisabled = getServiceDisabled(formattedResponse.error);
+            if (serviceDisabled) {
               setIsApiError(true);
-              setApiError(formattedResponse.error.message);
-              setApiEnableUrl(url);
+              setApiError(serviceDisabled.message);
+              setApiEnableUrl([serviceDisabled.url]);
             } else {
               setApiError(formattedResponse.error.message);
             }
