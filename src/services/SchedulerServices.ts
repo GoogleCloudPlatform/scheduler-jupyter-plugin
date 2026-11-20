@@ -24,7 +24,6 @@ import {
   HTTP_STATUS_FORBIDDEN,
   scheduleMode
 } from '../utils/Const';
-import { getServiceDisabled } from '../utils/ConsoleLinks';
 import {
   IClusterAPIResponse,
   IComposerAPIResponse,
@@ -36,6 +35,7 @@ import {
 } from '../scheduler/common/SchedulerInteface';
 import { Notification } from '@jupyterlab/apputils';
 import { handleErrorToast } from '../utils/ErrorUtils';
+import { showForbiddenError } from '../utils/ForbiddenError';
 import { toast } from 'react-toastify';
 import { toastifyCustomStyle } from '../utils/Config';
 
@@ -213,14 +213,11 @@ export class SchedulerService {
         try {
           setComposerEnvData([]);
           if (formattedResponse.error.code === HTTP_STATUS_FORBIDDEN) {
-            const serviceDisabled = getServiceDisabled(formattedResponse.error);
-            if (serviceDisabled) {
-              setIsApiError(true);
-              setApiError(serviceDisabled.message);
-              setApiEnableUrl([serviceDisabled.url]);
-            } else {
-              setApiError(formattedResponse.error.message);
-            }
+            showForbiddenError(formattedResponse.error, {
+              setIsApiError,
+              setApiError,
+              setApiEnableUrl
+            });
 
             if (setIsLoading) {
               setIsLoading(false);

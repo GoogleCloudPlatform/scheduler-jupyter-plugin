@@ -36,11 +36,10 @@ const CONSOLE_ORIGIN_PATTERN =
   /^https:\/\/console(\.[a-z]+)?\.cloud\.google\.com$/;
 
 export const LOGS_DOC_URL =
-  'https://docs.cloud.google.com/logging/docs/view/logs-explorer-interface';
-export const KMS_DOC_URL =
-  'https://docs.cloud.google.com/kms/docs/create-key-ring';
+  'https://cloud.google.com/logging/docs/view/logs-explorer-interface';
+export const KMS_DOC_URL = 'https://cloud.google.com/kms/docs/create-key-ring';
 export const ENABLE_API_DOC_URL =
-  'https://docs.cloud.google.com/service-usage/docs/enable-disable';
+  'https://cloud.google.com/service-usage/docs/enable-disable';
 
 /**
  * Returns the Console origin from page config, or null if it's missing or
@@ -83,12 +82,33 @@ export function getKmsUrl(projectId: string): string {
   );
 }
 
-export interface IServiceDisabled {
+/** A `google.rpc.ErrorInfo` entry in a Google API error's `details`. */
+export interface IErrorInfo {
+  '@type': 'type.googleapis.com/google.rpc.ErrorInfo';
+  reason?: string;
+  domain?: string;
+  metadata?: Record<string, string>;
+}
+
+/** The `error` object of a Google API error response (`google.rpc.Status`). */
+export interface IGoogleApiError {
+  code?: number;
+  message?: string;
+  status?: string;
+  details?: unknown[];
+}
+
+/** Text and link of the "API disabled" banner. */
+export interface IEnableApiBanner {
   /** Banner text, e.g. "Cloud Translation API is disabled in project 123." */
   message: string;
   /** Where "Click here to enable it." points. */
   url: string;
 }
+
+const ERROR_INFO_TYPE = 'type.googleapis.com/google.rpc.ErrorInfo';
+const SERVICE_DISABLED_REASON = 'SERVICE_DISABLED';
+const FALLBACK_MESSAGE = 'A required API is disabled.';
 
 const SERVICE_PATTERN = /^[a-z0-9.-]+\.googleapis\.com$/;
 // The API echoes the project the request named: a project number
@@ -97,20 +117,27 @@ const SERVICE_PATTERN = /^[a-z0-9.-]+\.googleapis\.com$/;
 const CONSUMER_PATTERN =
   /^projects\/(\d+|(?:[a-z0-9.-]+:)?[a-z][a-z0-9-]{4,28}[a-z0-9])$/;
 
+function isServiceDisabledInfo(detail: unknown): detail is IErrorInfo {
+  const info = detail as IErrorInfo | null;
+  return (
+    info?.['@type'] === ERROR_INFO_TYPE &&
+    info?.reason === SERVICE_DISABLED_REASON
+  );
+}
+
 /**
- * Reads a Google API "API disabled" error (google.rpc.ErrorInfo with reason
- * SERVICE_DISABLED) and returns the banner text and enable link, or null for
- * any other error.
+ * Returns the "API disabled" banner for a Google API error, or null if the
+ * error isn't one (no google.rpc.ErrorInfo with reason SERVICE_DISABLED).
  *
- * Only the structured ErrorInfo fields are used. The URL that the API puts in
- * the error message always points to the global Console, so it is ignored.
+ * Only the structured ErrorInfo fields are used, never the error message: the
+ * URL the API puts there always points to the global Console.
  */
-export function getServiceDisabled(error: any): IServiceDisabled | null {
-  const details: any[] = Array.isArray(error?.details) ? error.details : [];
-  const info = details.find(
-    detail =>
-      detail?.['@type'] === 'type.googleapis.com/google.rpc.ErrorInfo' &&
-      detail?.reason === 'SERVICE_DISABLED'
+export function getEnableApiBanner(
+  error: IGoogleApiError | null | undefined
+): IEnableApiBanner | null {
+  const details: unknown = error?.details;
+  const info = (Array.isArray(details) ? details : []).find(
+    isServiceDisabledInfo
   );
   if (!info) {
     return null;
@@ -127,10 +154,12 @@ export function getServiceDisabled(error: any): IServiceDisabled | null {
           ENABLE_API_DOC_URL
         )
       : ENABLE_API_DOC_URL;
-  // The first sentence of the API's message names the API without the URL.
-  const message =
-    title && project
-      ? `${title} is disabled in project ${project}.`
-      : `${String(error?.message ?? 'A required API is disabled').split('. ')[0]}.`;
+
+  let message = FALLBACK_MESSAGE;
+  if (title && project) {
+    message = `${title} is disabled in project ${project}.`;
+  } else if (title) {
+    message = `${title} is disabled.`;
+  }
   return { message, url };
 }

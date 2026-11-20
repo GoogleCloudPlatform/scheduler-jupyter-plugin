@@ -44,8 +44,8 @@ import {
 import React, { Dispatch, SetStateAction } from 'react';
 import ExpandToastMessage from '../scheduler/common/ExpandToastMessage';
 import { handleErrorToast, handleEucConsentToast } from '../utils/ErrorUtils';
+import { showForbiddenError } from '../utils/ForbiddenError';
 import { extractEucConsentUrl } from '../utils/EucConsentError';
-import { getServiceDisabled } from '../utils/ConsoleLinks';
 
 export class VertexServices {
   static readonly machineTypeAPIService = (
@@ -67,16 +67,11 @@ export class VertexServices {
               'code' in formattedResponse.error &&
               formattedResponse.error.code === HTTP_STATUS_FORBIDDEN
             ) {
-              const serviceDisabled = getServiceDisabled(
-                formattedResponse.error
-              );
-              if (serviceDisabled) {
-                setIsApiError(true);
-                setApiError(serviceDisabled.message);
-                setApiEnableUrl([serviceDisabled.url]);
-              } else {
-                setApiError(formattedResponse.error.message);
-              }
+              showForbiddenError(formattedResponse.error, {
+                setIsApiError,
+                setApiError,
+                setApiEnableUrl
+              });
             } else {
               throw formattedResponse.error;
             }
@@ -259,14 +254,11 @@ export class VertexServices {
 
       // Handle API error
       if (error?.code === HTTP_STATUS_FORBIDDEN) {
-        const serviceDisabled = getServiceDisabled(error);
-        if (serviceDisabled) {
-          setIsApiError(true);
-          setApiError(serviceDisabled.message);
-          setApiEnableUrl([serviceDisabled.url]);
-        } else {
-          setApiError(error.message);
-        }
+        showForbiddenError(error, {
+          setIsApiError,
+          setApiError,
+          setApiEnableUrl
+        });
 
         return;
       }
