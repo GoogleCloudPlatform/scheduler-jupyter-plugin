@@ -16,9 +16,24 @@
  */
 
 import { PageConfig } from '@jupyterlab/coreutils';
-import { showForbiddenError } from '../utils/ForbiddenError';
+import { ENABLE_API_DOC_URL } from '../utils/ConsoleLinks';
+import {
+  getEnableApiBanner,
+  showForbiddenError
+} from '../utils/ForbiddenError';
+import {
+  composerDisabled,
+  iamPermissionDenied,
+  translationDisabled
+} from './serviceDisabledFixtures';
 
 const EU_CONSOLE = 'https://console.eu.cloud.google.com';
+
+function setConsoleOrigin(value: string) {
+  jest
+    .spyOn(PageConfig, 'getOption')
+    .mockImplementation(key => (key === 'consoleOrigin' ? value : ''));
+}
 
 function makeSetters() {
   return {
@@ -28,39 +43,57 @@ function makeSetters() {
   };
 }
 
-beforeEach(() => {
-  jest
-    .spyOn(PageConfig, 'getOption')
-    .mockImplementation(key => (key === 'consoleOrigin' ? EU_CONSOLE : ''));
-});
-
 afterEach(() => {
   jest.restoreAllMocks();
 });
 
+describe('getEnableApiBanner', () => {
+  it('links the API page on the Console origin', () => {
+    setConsoleOrigin(EU_CONSOLE);
+    expect(getEnableApiBanner(composerDisabled())).toEqual({
+      message: 'Cloud Composer API is disabled in project durczokj-1-237346.',
+      url: `${EU_CONSOLE}/apis/api/composer.googleapis.com/overview?project=durczokj-1-237346`
+    });
+  });
+
+  it('links the docs without a Console origin', () => {
+    setConsoleOrigin('');
+    expect(getEnableApiBanner(translationDisabled())).toEqual({
+      message: 'Cloud Translation API is disabled in project 1007353032215.',
+      url: ENABLE_API_DOC_URL
+    });
+  });
+
+  it('links the docs when the project is unusable', () => {
+    setConsoleOrigin(EU_CONSOLE);
+    const error = composerDisabled();
+    error.details[0].metadata.consumer = 'folders/123';
+    expect(getEnableApiBanner(error)).toEqual({
+      message: 'Cloud Composer API is disabled.',
+      url: ENABLE_API_DOC_URL
+    });
+  });
+
+  it('uses a fixed message without serviceTitle', () => {
+    setConsoleOrigin(EU_CONSOLE);
+    const error = composerDisabled();
+    delete error.details[0].metadata.serviceTitle;
+    expect(getEnableApiBanner(error)?.message).toBe(
+      'A required API is disabled.'
+    );
+  });
+
+  it('returns null for other 403s', () => {
+    setConsoleOrigin(EU_CONSOLE);
+    expect(getEnableApiBanner(iamPermissionDenied())).toBeNull();
+  });
+});
+
 describe('showForbiddenError', () => {
   it('shows the enable banner for SERVICE_DISABLED', () => {
+    setConsoleOrigin(EU_CONSOLE);
     const setters = makeSetters();
-    showForbiddenError(
-      {
-        code: 403,
-        message:
-          'Cloud Composer API has not been used in project durczokj-1-237346 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/composer.googleapis.com/overview?project=durczokj-1-237346 then retry.',
-        details: [
-          {
-            '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
-            reason: 'SERVICE_DISABLED',
-            domain: 'googleapis.com',
-            metadata: {
-              serviceTitle: 'Cloud Composer API',
-              service: 'composer.googleapis.com',
-              consumer: 'projects/durczokj-1-237346'
-            }
-          }
-        ]
-      },
-      setters
-    );
+    showForbiddenError(composerDisabled(), setters);
     expect(setters.setIsApiError).toHaveBeenCalledWith(true);
     expect(setters.setApiError).toHaveBeenCalledWith(
       'Cloud Composer API is disabled in project durczokj-1-237346.'
@@ -71,12 +104,12 @@ describe('showForbiddenError', () => {
   });
 
   it('shows other 403s as text without a banner link', () => {
+    setConsoleOrigin(EU_CONSOLE);
     const setters = makeSetters();
-    const message =
-      "Permission 'iam.serviceAccounts.list' denied. See https://console.cloud.google.com/iam-admin/troubleshooter/summary";
-    showForbiddenError({ code: 403, message }, setters);
+    const error = iamPermissionDenied();
+    showForbiddenError(error, setters);
     expect(setters.setIsApiError).not.toHaveBeenCalled();
     expect(setters.setApiEnableUrl).not.toHaveBeenCalled();
-    expect(setters.setApiError).toHaveBeenCalledWith(message);
+    expect(setters.setApiError).toHaveBeenCalledWith(error.message);
   });
 });

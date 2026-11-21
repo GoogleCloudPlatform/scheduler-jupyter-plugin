@@ -21,9 +21,9 @@ import {
   KMS_DOC_URL,
   LOGS_DOC_URL,
   getConsoleOrigin,
+  getEnableApiUrl,
   getKmsUrl,
-  getLogsUrl,
-  getEnableApiBanner
+  getLogsUrl
 } from '../utils/ConsoleLinks';
 
 const US_CONSOLE = 'https://console.us.cloud.google.com';
@@ -33,40 +33,6 @@ function setConsoleOrigin(value: string) {
     .spyOn(PageConfig, 'getOption')
     .mockImplementation(key => (key === 'consoleOrigin' ? value : ''));
 }
-
-// Real response from a Google API that is disabled in the project.
-const serviceDisabledError = () => ({
-  code: 403,
-  status: 'PERMISSION_DENIED',
-  message:
-    'Cloud Translation API has not been used in project 1007353032215 before or it is disabled. ' +
-    'Enable it by visiting https://console.developers.google.com/apis/api/translate.googleapis.com/overview?project=1007353032215 then retry. ' +
-    'If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.',
-  details: [
-    {
-      '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
-      reason: 'SERVICE_DISABLED',
-      domain: 'googleapis.com',
-      metadata: {
-        activationUrl:
-          'https://console.developers.google.com/apis/api/translate.googleapis.com/overview?project=1007353032215',
-        serviceTitle: 'Cloud Translation API',
-        service: 'translate.googleapis.com',
-        containerInfo: '1007353032215',
-        consumer: 'projects/1007353032215'
-      }
-    },
-    {
-      '@type': 'type.googleapis.com/google.rpc.Help',
-      links: [
-        {
-          description: 'Google developers console API activation',
-          url: 'https://console.developers.google.com/apis/api/translate.googleapis.com/overview?project=1007353032215'
-        }
-      ]
-    }
-  ]
-});
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -123,114 +89,27 @@ describe('getKmsUrl', () => {
   });
 });
 
-describe('getEnableApiBanner', () => {
-  it('builds the enable link on the Console origin from ErrorInfo', () => {
+describe('getEnableApiUrl', () => {
+  it('builds the API page on the Console origin', () => {
     setConsoleOrigin(US_CONSOLE);
-    expect(getEnableApiBanner(serviceDisabledError())).toEqual({
-      message: 'Cloud Translation API is disabled in project 1007353032215.',
-      url: `${US_CONSOLE}/apis/api/translate.googleapis.com/overview?project=1007353032215`
-    });
+    expect(getEnableApiUrl('composer.googleapis.com', 'my-project')).toBe(
+      `${US_CONSOLE}/apis/api/composer.googleapis.com/overview?project=my-project`
+    );
+  });
+
+  it('encodes a domain-scoped project ID', () => {
+    setConsoleOrigin(US_CONSOLE);
+    expect(
+      getEnableApiUrl('composer.googleapis.com', 'example.com:my-project')
+    ).toBe(
+      `${US_CONSOLE}/apis/api/composer.googleapis.com/overview?project=example.com%3Amy-project`
+    );
   });
 
   it('links to the docs without a Console origin', () => {
     setConsoleOrigin('');
-    expect(getEnableApiBanner(serviceDisabledError())?.url).toBe(
+    expect(getEnableApiUrl('composer.googleapis.com', 'my-project')).toBe(
       ENABLE_API_DOC_URL
     );
-  });
-
-  it('never returns the URL from the error message', () => {
-    setConsoleOrigin('');
-    const result = getEnableApiBanner(serviceDisabledError());
-    expect(result?.url).not.toContain('console.developers.google.com');
-    expect(result?.message).not.toContain('https://');
-  });
-
-  it('links to the docs when service is malformed', () => {
-    setConsoleOrigin(US_CONSOLE);
-    const error = serviceDisabledError();
-    error.details[0].metadata!.service = 'evil.com/x';
-    expect(getEnableApiBanner(error)?.url).toBe(ENABLE_API_DOC_URL);
-  });
-
-  it('accepts a project ID as consumer (real Composer response)', () => {
-    setConsoleOrigin(US_CONSOLE);
-    const error = serviceDisabledError();
-    Object.assign(error.details[0].metadata!, {
-      serviceTitle: 'Cloud Composer API',
-      service: 'composer.googleapis.com',
-      consumer: 'projects/durczokj-1-237346',
-      containerInfo: 'durczokj-1-237346'
-    });
-    expect(getEnableApiBanner(error)).toEqual({
-      message: 'Cloud Composer API is disabled in project durczokj-1-237346.',
-      url: `${US_CONSOLE}/apis/api/composer.googleapis.com/overview?project=durczokj-1-237346`
-    });
-  });
-
-  it('accepts a domain-scoped project ID and encodes it', () => {
-    setConsoleOrigin(US_CONSOLE);
-    const error = serviceDisabledError();
-    error.details[0].metadata!.consumer = 'projects/example.com:my-project';
-    expect(getEnableApiBanner(error)?.url).toBe(
-      `${US_CONSOLE}/apis/api/translate.googleapis.com/overview?project=example.com%3Amy-project`
-    );
-  });
-
-  it.each(['projects/', 'projects/My-Project', 'projects/a/b', 'folders/123'])(
-    'links to the docs for consumer %j',
-    consumer => {
-      setConsoleOrigin(US_CONSOLE);
-      const error = serviceDisabledError();
-      error.details[0].metadata!.consumer = consumer;
-      expect(getEnableApiBanner(error)?.url).toBe(ENABLE_API_DOC_URL);
-    }
-  );
-
-  it('links to the docs when consumer is missing', () => {
-    setConsoleOrigin(US_CONSOLE);
-    const error = serviceDisabledError();
-    delete (error.details[0].metadata as any).consumer;
-    expect(getEnableApiBanner(error)?.url).toBe(ENABLE_API_DOC_URL);
-  });
-
-  it('uses a fixed message without serviceTitle, never the error message', () => {
-    setConsoleOrigin(US_CONSOLE);
-    const error = serviceDisabledError();
-    delete (error.details[0].metadata as any).serviceTitle;
-    expect(getEnableApiBanner(error)?.message).toBe(
-      'A required API is disabled.'
-    );
-  });
-
-  it('names the API without the project when consumer is malformed', () => {
-    setConsoleOrigin(US_CONSOLE);
-    const error = serviceDisabledError();
-    error.details[0].metadata!.consumer = 'folders/123';
-    expect(getEnableApiBanner(error)?.message).toBe(
-      'Cloud Translation API is disabled.'
-    );
-  });
-
-  it('returns null for other 403s, even with a Console URL in the message', () => {
-    setConsoleOrigin(US_CONSOLE);
-    expect(
-      getEnableApiBanner({
-        code: 403,
-        message:
-          "Permission 'iam.serviceAccounts.list' denied. See https://console.cloud.google.com/iam-admin/troubleshooter/summary",
-        details: [
-          {
-            '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
-            reason: 'IAM_PERMISSION_DENIED',
-            domain: 'iam.googleapis.com'
-          }
-        ]
-      })
-    ).toBeNull();
-  });
-
-  it('returns null without details', () => {
-    expect(getEnableApiBanner({ code: 403, message: 'Forbidden' })).toBeNull();
   });
 });

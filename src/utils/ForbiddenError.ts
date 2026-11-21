@@ -15,7 +15,21 @@
  * limitations under the License.
  */
 
-import { getEnableApiBanner, IGoogleApiError } from './ConsoleLinks';
+/** Presents Google API 403 errors in the scheduler's error banner. */
+
+import { ENABLE_API_DOC_URL, getEnableApiUrl } from './ConsoleLinks';
+import {
+  IGoogleApiError,
+  parseServiceDisabledError
+} from './ServiceDisabledError';
+
+/** Text and link of the "API disabled" banner. */
+export interface IEnableApiBanner {
+  /** Banner text, e.g. "Cloud Composer API is disabled in project my-project." */
+  message: string;
+  /** Where "Click here to enable it." points. */
+  url: string;
+}
 
 /** Banner state setters owned by NotebookScheduler. */
 export interface IApiErrorSetters {
@@ -24,11 +38,37 @@ export interface IApiErrorSetters {
   setApiEnableUrl: (urls: string[]) => void;
 }
 
+const FALLBACK_MESSAGE = 'A required API is disabled.';
+
+/**
+ * Returns the "API disabled" banner for a Google API error, or null if the
+ * error isn't a SERVICE_DISABLED error.
+ */
+export function getEnableApiBanner(
+  error: IGoogleApiError | null | undefined
+): IEnableApiBanner | null {
+  const disabled = parseServiceDisabledError(error);
+  if (!disabled) {
+    return null;
+  }
+  const { service, project, title } = disabled;
+  const url =
+    service && project ? getEnableApiUrl(service, project) : ENABLE_API_DOC_URL;
+
+  let message = FALLBACK_MESSAGE;
+  if (title && project) {
+    message = `${title} is disabled in project ${project}.`;
+  } else if (title) {
+    message = `${title} is disabled.`;
+  }
+  return { message, url };
+}
+
 /**
  * Shows a 403 from a Google API in the scheduler's error banner.
  *
- * "API disabled" errors get the banner with an enable link (see
- * `getEnableApiBanner`). Any other 403 shows its message without a link.
+ * "API disabled" errors get the banner with an enable link. Any other 403
+ * shows its message without a link.
  * @param error - the `error` object of the API response
  * @param setters - the banner state setters
  */

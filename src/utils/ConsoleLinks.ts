@@ -82,84 +82,11 @@ export function getKmsUrl(projectId: string): string {
   );
 }
 
-/** A `google.rpc.ErrorInfo` entry in a Google API error's `details`. */
-export interface IErrorInfo {
-  '@type': 'type.googleapis.com/google.rpc.ErrorInfo';
-  reason?: string;
-  domain?: string;
-  metadata?: Record<string, string>;
-}
-
-/** The `error` object of a Google API error response (`google.rpc.Status`). */
-export interface IGoogleApiError {
-  code?: number;
-  message?: string;
-  status?: string;
-  details?: unknown[];
-}
-
-/** Text and link of the "API disabled" banner. */
-export interface IEnableApiBanner {
-  /** Banner text, e.g. "Cloud Translation API is disabled in project 123." */
-  message: string;
-  /** Where "Click here to enable it." points. */
-  url: string;
-}
-
-const ERROR_INFO_TYPE = 'type.googleapis.com/google.rpc.ErrorInfo';
-const SERVICE_DISABLED_REASON = 'SERVICE_DISABLED';
-const FALLBACK_MESSAGE = 'A required API is disabled.';
-
-const SERVICE_PATTERN = /^[a-z0-9.-]+\.googleapis\.com$/;
-// The API echoes the project the request named: a project number
-// ("projects/123") or a project ID, optionally domain-scoped
-// ("projects/my-project", "projects/example.com:my-project").
-const CONSUMER_PATTERN =
-  /^projects\/(\d+|(?:[a-z0-9.-]+:)?[a-z][a-z0-9-]{4,28}[a-z0-9])$/;
-
-function isServiceDisabledInfo(detail: unknown): detail is IErrorInfo {
-  const info = detail as IErrorInfo | null;
-  return (
-    info?.['@type'] === ERROR_INFO_TYPE &&
-    info?.reason === SERVICE_DISABLED_REASON
+/** The page that enables `service` (e.g. "composer.googleapis.com") in `project`. */
+export function getEnableApiUrl(service: string, project: string): string {
+  const params = new URLSearchParams({ project });
+  return consoleOrDocsUrl(
+    `/apis/api/${encodeURIComponent(service)}/overview?${params.toString()}`,
+    ENABLE_API_DOC_URL
   );
-}
-
-/**
- * Returns the "API disabled" banner for a Google API error, or null if the
- * error isn't one (no google.rpc.ErrorInfo with reason SERVICE_DISABLED).
- *
- * Only the structured ErrorInfo fields are used, never the error message: the
- * URL the API puts there always points to the global Console.
- */
-export function getEnableApiBanner(
-  error: IGoogleApiError | null | undefined
-): IEnableApiBanner | null {
-  const details: unknown = error?.details;
-  const info = (Array.isArray(details) ? details : []).find(
-    isServiceDisabledInfo
-  );
-  if (!info) {
-    return null;
-  }
-  const metadata = info.metadata ?? {};
-  const service = String(metadata.service ?? '');
-  const project = CONSUMER_PATTERN.exec(String(metadata.consumer ?? ''))?.[1];
-  const title = String(metadata.serviceTitle ?? '');
-
-  const url =
-    SERVICE_PATTERN.test(service) && project
-      ? consoleOrDocsUrl(
-          `/apis/api/${service}/overview?project=${encodeURIComponent(project)}`,
-          ENABLE_API_DOC_URL
-        )
-      : ENABLE_API_DOC_URL;
-
-  let message = FALLBACK_MESSAGE;
-  if (title && project) {
-    message = `${title} is disabled in project ${project}.`;
-  } else if (title) {
-    message = `${title} is disabled.`;
-  }
-  return { message, url };
 }
