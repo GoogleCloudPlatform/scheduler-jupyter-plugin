@@ -24,10 +24,10 @@ const EnableNotifyMessage = ({
   message: string;
   url: any;
 }): JSX.Element => {
-  const beforeLink = message?.split('. ')[0] || '';
+  const beforeLink = message || '';
   return (
     <>
-      {beforeLink}
+      {beforeLink}{' '}
       <a
         href={url?.[0]}
         target="_blank"
