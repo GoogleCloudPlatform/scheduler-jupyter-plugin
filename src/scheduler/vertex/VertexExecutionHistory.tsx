@@ -31,7 +31,7 @@ import {
   IVertexScheduleRunList
 } from './VertexInterfaces';
 import { VIEW_CLOUD_LOGS } from '../../utils/Const';
-import { getLogsUrl } from '../../utils/ConsoleLinks';
+import { LOGS_LINK, consoleLinks } from '../../utils/ConsoleLinks';
 import { handleErrorToast } from '../../utils/ErrorUtils';
 import CustomDate from '../common/CustomDate';
 import { VertexServices } from '../../services/Vertex';
@@ -167,11 +167,11 @@ const VertexExecutionHistory = ({
    *  Redirect to pantheon cloud logs
    */
   const handleLogs = async () => {
-    const logExplorerUrl = getLogsUrl(
+    const logExplorerUrl = consoleLinks.urlFor(LOGS_LINK, {
       projectId,
       jobRunId,
-      jobRunsData?.startDate
-    );
+      startDate: jobRunsData?.startDate
+    });
     try {
       window.open(logExplorerUrl);
     } catch (error) {

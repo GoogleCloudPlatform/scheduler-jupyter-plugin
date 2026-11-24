@@ -21,18 +21,17 @@
  * Vertex AI Workbench publishes the origin of the instance's Console (the
  * global Console or a Jurisdictional Console such as
  * https://console.us.cloud.google.com) in the `consoleOrigin` JupyterLab page
- * config key. When the key is missing or invalid (another JupyterLab host, or
- * Workbench couldn't resolve the Console), links point to public documentation
- * for the same task, never to a Console the user may not belong to.
+ * config key. When it is missing or invalid (another JupyterLab host, or
+ * Workbench couldn't resolve the Console), links point to public
+ * documentation for the same task, never to a Console the user may not belong
+ * to.
  *
- * One exception: the enable-API link goes to the Console only on the global
- * Console, because Jurisdictional Consoles don't have that page (see
- * `getEnableApiUrl`).
+ * Each link is a `ConsoleLinkDefinition` constant (path, docs fallback, and on
+ * which Consoles the page exists). `ConsoleLinkResolver.urlFor` is the only
+ * place that decides between the Console page and the docs.
  */
 
 import { PageConfig } from '@jupyterlab/coreutils';
-
-const CONSOLE_ORIGIN_KEY = 'consoleOrigin';
 
 const GLOBAL_CONSOLE_ORIGIN = 'https://console.cloud.google.com';
 
@@ -47,63 +46,137 @@ export const KMS_DOC_URL = 'https://cloud.google.com/kms/docs/create-key-ring';
 export const ENABLE_API_DOC_URL =
   'https://cloud.google.com/service-usage/docs/enable-disable';
 
-/**
- * Returns the Console origin from page config, or null if it's missing or
- * invalid.
- */
-export function getConsoleOrigin(): string | null {
-  const origin = PageConfig.getOption(CONSOLE_ORIGIN_KEY);
-  return CONSOLE_ORIGIN_PATTERN.test(origin) ? origin : null;
+// ---------------------------------------------------------------------------
+// Where the Console origin comes from.
+// ---------------------------------------------------------------------------
+
+export interface IConsoleOriginSource {
+  /** The validated Console origin, or null if there is none. */
+  getOrigin(): string | null;
+}
+
+/** Reads `consoleOrigin` from JupyterLab page config (published by Workbench). */
+export class PageConfigOriginSource implements IConsoleOriginSource {
+  getOrigin(): string | null {
+    const origin = PageConfig.getOption('consoleOrigin');
+    if (CONSOLE_ORIGIN_PATTERN.test(origin)) {
+      return origin;
+    }
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Strategy: on which Consoles a page exists. Stateless, so one instance each.
+// ---------------------------------------------------------------------------
+
+export interface IConsoleAvailability {
+  isAvailableOn(origin: string): boolean;
+}
+
+/** The page exists on the global and on every Jurisdictional Console. */
+class AnyConsole implements IConsoleAvailability {
+  isAvailableOn(origin: string): boolean {
+    return true;
+  }
 }
 
 /**
- * Returns `path` (starting with "/") on the Console origin, or `docsUrl` if
- * there's no valid origin.
+ * The page exists only on the global Console. Jurisdictional Consoles have no
+ * API details page: on the US Jurisdictional Console,
+ * /apis/api/<service>/overview returns "URL not found" even though the
+ * project opens.
  */
-export function consoleOrDocsUrl(path: string, docsUrl: string): string {
-  const origin = getConsoleOrigin();
-  return origin === null ? docsUrl : `${origin}${path}`;
+class GlobalConsoleOnly implements IConsoleAvailability {
+  isAvailableOn(origin: string): boolean {
+    return origin === GLOBAL_CONSOLE_ORIGIN;
+  }
+}
+
+export const ANY_CONSOLE: IConsoleAvailability = new AnyConsole();
+export const GLOBAL_CONSOLE_ONLY: IConsoleAvailability =
+  new GlobalConsoleOnly();
+
+// ---------------------------------------------------------------------------
+// A link definition: everything that differs between links.
+// ---------------------------------------------------------------------------
+
+export class ConsoleLinkDefinition<TArgs> {
+  constructor(
+    /** Builds the Console path (starting with "/") from the link's arguments. */
+    readonly buildPath: (args: TArgs) => string,
+    /** Public docs page used when the Console page can't be linked. */
+    readonly docsUrl: string,
+    /** On which Consoles the page exists. */
+    readonly availability: IConsoleAvailability
+  ) {}
+}
+
+/** "?a=1&b=2", leaving out undefined values. */
+function query(values: Record<string, string | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) {
+      params.set(key, value);
+    }
+  }
+  return '?' + params.toString();
 }
 
 /** Logs Explorer filtered to one notebook execution job run. */
-export function getLogsUrl(
-  projectId: string,
-  jobRunId: string,
-  startDate?: string
-): string {
-  const params = new URLSearchParams({ query: `SEARCH("${jobRunId}")` });
-  if (startDate) {
-    params.set('cursorTimestamp', startDate);
-  }
-  params.set('project', projectId);
-  return consoleOrDocsUrl(`/logs/query?${params.toString()}`, LOGS_DOC_URL);
-}
+export const LOGS_LINK = new ConsoleLinkDefinition(
+  (args: { projectId: string; jobRunId: string; startDate?: string }) =>
+    '/logs/query' +
+    query({
+      query: `SEARCH("${args.jobRunId}")`,
+      cursorTimestamp: args.startDate,
+      project: args.projectId
+    }),
+  LOGS_DOC_URL,
+  ANY_CONSOLE
+);
 
 /** Cloud KMS key rings of a project. */
-export function getKmsUrl(projectId: string): string {
-  const params = new URLSearchParams({ project: projectId });
-  return consoleOrDocsUrl(
-    `/security/kms/keyrings?${params.toString()}`,
-    KMS_DOC_URL
-  );
+export const KMS_LINK = new ConsoleLinkDefinition(
+  (args: { projectId: string }) =>
+    '/security/kms/keyrings' + query({ project: args.projectId }),
+  KMS_DOC_URL,
+  ANY_CONSOLE
+);
+
+/** The page that enables a Google API (e.g. "composer.googleapis.com") in a project. */
+export const ENABLE_API_LINK = new ConsoleLinkDefinition(
+  (args: { service: string; project: string }) =>
+    `/apis/api/${encodeURIComponent(args.service)}/overview` +
+    query({ project: args.project }),
+  ENABLE_API_DOC_URL,
+  GLOBAL_CONSOLE_ONLY
+);
+
+// ---------------------------------------------------------------------------
+// The resolver: the same for every link. The single decision point.
+// ---------------------------------------------------------------------------
+
+export class ConsoleLinkResolver {
+  constructor(private readonly originSource: IConsoleOriginSource) {}
+
+  /** The Console page if it exists on this instance's Console, the docs otherwise. */
+  urlFor<TArgs>(link: ConsoleLinkDefinition<TArgs>, args: TArgs): string {
+    const origin = this.originSource.getOrigin();
+    if (origin === null) {
+      return link.docsUrl;
+    }
+    if (!link.availability.isAvailableOn(origin)) {
+      return link.docsUrl;
+    }
+    return origin + link.buildPath(args);
+  }
 }
 
-/**
- * The page that enables `service` (e.g. "composer.googleapis.com") in
- * `project`.
- *
- * Unlike the other links, this one goes to the Console only when the origin is
- * the global Console. Jurisdictional Consoles have no API details page: on the
- * US Jurisdictional Console, `/apis/api/<service>/overview` returns "URL not
- * found" even though the project opens. Their users, like users without a
- * Console origin, get the docs on enabling APIs.
- */
-export function getEnableApiUrl(service: string, project: string): string {
-  if (getConsoleOrigin() !== GLOBAL_CONSOLE_ORIGIN) {
-    return ENABLE_API_DOC_URL;
-  }
-  const params = new URLSearchParams({ project });
-  return `${GLOBAL_CONSOLE_ORIGIN}/apis/api/${encodeURIComponent(
-    service
-  )}/overview?${params.toString()}`;
-}
+// ---------------------------------------------------------------------------
+// Composition root: the resolver the plugin uses.
+// ---------------------------------------------------------------------------
+
+export const consoleLinks = new ConsoleLinkResolver(
+  new PageConfigOriginSource()
+);

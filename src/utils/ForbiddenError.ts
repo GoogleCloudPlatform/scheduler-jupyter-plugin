@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 
-/** Presents Google API 403 errors in the scheduler's error banner. */
+/** Puts Google API 403 errors into the scheduler's error banner. */
 
-import { ENABLE_API_DOC_URL, getEnableApiUrl } from './ConsoleLinks';
 import {
+  ErrorKindRegistry,
   IGoogleApiError,
-  parseServiceDisabledError
-} from './ServiceDisabledError';
-
-/** Text and link of the "API disabled" banner. */
-export interface IEnableApiBanner {
-  /** Banner text, e.g. "Cloud Composer API is disabled in project my-project." */
-  message: string;
-  /** Where "Click here to enable it." points. */
-  url: string;
-}
+  errorKinds
+} from './ApiErrorKinds';
 
 /** Banner state setters owned by NotebookScheduler. */
 export interface IApiErrorSetters {
@@ -38,71 +30,32 @@ export interface IApiErrorSetters {
   setApiEnableUrl: (urls: string[]) => void;
 }
 
-const FALLBACK_MESSAGE = 'A required API is disabled.';
-const FORBIDDEN_FALLBACK_MESSAGE = 'Permission denied.';
-
 /**
- * Returns the "API disabled" banner for a Google API error, or null if the
- * error isn't a SERVICE_DISABLED error.
- */
-export function getEnableApiBanner(
-  error: IGoogleApiError | null | undefined
-): IEnableApiBanner | null {
-  const disabled = parseServiceDisabledError(error);
-  if (!disabled) {
-    return null;
-  }
-  const { service, project, title } = disabled;
-  // getEnableApiUrl links the Console API page only on the global Console and
-  // the docs everywhere else (Jurisdictional Consoles have no such page).
-  const url =
-    service && project ? getEnableApiUrl(service, project) : ENABLE_API_DOC_URL;
-
-  let message = FALLBACK_MESSAGE;
-  if (title && project) {
-    message = `${title} is disabled in project ${project}.`;
-  } else if (title) {
-    message = `${title} is disabled.`;
-  }
-  return { message, url };
-}
-
-/**
- * Returns the first sentence of a Google API error message.
- *
- * Messages such as IAM_PERMISSION_DENIED continue with a link to the global
- * Console (e.g. the IAM Troubleshooter), which must not be shown on
- * Jurisdictional Console instances. The first sentence names the problem.
- */
-function firstSentence(message: string | undefined): string {
-  const sentence = (message ?? '').split('. ')[0].trim();
-  if (!sentence) {
-    return FORBIDDEN_FALLBACK_MESSAGE;
-  }
-  return sentence.endsWith('.') ? sentence : `${sentence}.`;
-}
-
-/**
- * Shows a 403 from a Google API in the scheduler's error banner.
- *
  * Every 403 shows the banner, because the schedule and environment lists
- * render the error only there. "API disabled" errors also get the enable
- * link; any other 403 (e.g. a missing IAM permission) shows the first sentence
- * of its message without a link.
- * @param error - the `error` object of the API response
- * @param setters - the banner state setters
+ * render the error only there. What the banner says, and whether it has a
+ * link, is decided by the error kind registry.
  */
+export class ForbiddenErrorPresenter {
+  constructor(private readonly registry: ErrorKindRegistry) {}
+
+  show(error: IGoogleApiError, setters: IApiErrorSetters): void {
+    const banner = this.registry.toBanner(error);
+    setters.setIsApiError(true);
+    setters.setApiError(banner.message);
+    if (banner.url === null) {
+      setters.setApiEnableUrl([]);
+    } else {
+      setters.setApiEnableUrl([banner.url]);
+    }
+  }
+}
+
+// Composition root. Today's function name keeps the call sites unchanged.
+const presenter = new ForbiddenErrorPresenter(errorKinds);
+
 export function showForbiddenError(
   error: IGoogleApiError,
   setters: IApiErrorSetters
 ): void {
-  const banner = getEnableApiBanner(error);
-  setters.setIsApiError(true);
-  if (banner) {
-    setters.setApiError(banner.message);
-    setters.setApiEnableUrl([banner.url]);
-  } else {
-    setters.setApiError(firstSentence(error.message));
-    setters.setApiEnableUrl([]);
-  }
+  presenter.show(error, setters);
 }

@@ -17,7 +17,7 @@
 
 import React, { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import EnableNotifyMessage from '../scheduler/common/EnableNotifyMessage';
+import ApiErrorBanner from '../scheduler/common/ApiErrorBanner';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -41,11 +41,11 @@ afterEach(() => {
   container.remove();
 });
 
-describe('EnableNotifyMessage', () => {
+describe('ApiErrorBanner', () => {
   it('shows the message and the enable link', () => {
     const url = 'https://cloud.google.com/service-usage/docs/enable-disable';
     render(
-      <EnableNotifyMessage
+      <ApiErrorBanner
         message="Cloud Composer API is disabled in project p."
         url={[url]}
       />
@@ -59,7 +59,7 @@ describe('EnableNotifyMessage', () => {
   it.each([[[]], [null]])(
     'shows only the message when the enable URLs are %j',
     url => {
-      render(<EnableNotifyMessage message="Permission denied." url={url} />);
+      render(<ApiErrorBanner message="Permission denied." url={url} />);
       expect(container.textContent).toBe('Permission denied.');
       expect(container.querySelector('a')).toBeNull();
     }

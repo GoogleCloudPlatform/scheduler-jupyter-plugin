@@ -74,7 +74,7 @@ import {
   VERTEX_REGIONS,
   VERTEX_SCHEDULE
 } from '../../utils/Const';
-import { getKmsUrl } from '../../utils/ConsoleLinks';
+import { KMS_LINK, consoleLinks } from '../../utils/ConsoleLinks';
 import LearnMore from '../common/LearnMore';
 import ErrorMessage from '../common/ErrorMessage';
 import { VertexServices } from '../../services/Vertex';
@@ -1949,7 +1949,10 @@ const CreateVertexScheduler = ({
                   <div
                     className="encryption-link"
                     onClick={() => {
-                      window.open(getKmsUrl(projectId), '_blank');
+                      window.open(
+                        consoleLinks.urlFor(KMS_LINK, { projectId }),
+                        '_blank'
+                      );
                     }}
                   >
                     Google Cloud Key Management Service
