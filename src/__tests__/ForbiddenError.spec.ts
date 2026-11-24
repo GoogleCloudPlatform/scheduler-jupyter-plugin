@@ -112,13 +112,31 @@ describe('showForbiddenError', () => {
     ]);
   });
 
-  it('shows other 403s as text without a banner link', () => {
+  it('shows other 403s in the banner without a link', () => {
+    // The list screens render the error only inside the banner, so other
+    // 403s (missing IAM permission, billing disabled) must set it too.
     setConsoleOrigin(EU_CONSOLE);
     const setters = makeSetters();
-    const error = iamPermissionDenied();
-    showForbiddenError(error, setters);
-    expect(setters.setIsApiError).not.toHaveBeenCalled();
-    expect(setters.setApiEnableUrl).not.toHaveBeenCalled();
-    expect(setters.setApiError).toHaveBeenCalledWith(error.message);
+    showForbiddenError(iamPermissionDenied(), setters);
+    expect(setters.setIsApiError).toHaveBeenCalledWith(true);
+    expect(setters.setApiEnableUrl).toHaveBeenCalledWith([]);
+    expect(setters.setApiError).toHaveBeenCalledWith(
+      "Permission 'aiplatform.schedules.list' denied on resource '//aiplatform.googleapis.com/projects/durczokj-1-237346/locations/us-central1' (or it may not exist)."
+    );
+  });
+
+  it('keeps the global Console URL of other 403s off the banner', () => {
+    setConsoleOrigin(EU_CONSOLE);
+    const setters = makeSetters();
+    showForbiddenError(iamPermissionDenied(), setters);
+    expect(setters.setApiError.mock.calls[0][0]).not.toContain('console.');
+  });
+
+  it('shows a generic text for other 403s without a message', () => {
+    const setters = makeSetters();
+    showForbiddenError({ code: 403 }, setters);
+    expect(setters.setIsApiError).toHaveBeenCalledWith(true);
+    expect(setters.setApiError).toHaveBeenCalledWith('Permission denied.');
+    expect(setters.setApiEnableUrl).toHaveBeenCalledWith([]);
   });
 });

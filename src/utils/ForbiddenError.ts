@@ -39,6 +39,7 @@ export interface IApiErrorSetters {
 }
 
 const FALLBACK_MESSAGE = 'A required API is disabled.';
+const FORBIDDEN_FALLBACK_MESSAGE = 'Permission denied.';
 
 /**
  * Returns the "API disabled" banner for a Google API error, or null if the
@@ -67,10 +68,27 @@ export function getEnableApiBanner(
 }
 
 /**
+ * Returns the first sentence of a Google API error message.
+ *
+ * Messages such as IAM_PERMISSION_DENIED continue with a link to the global
+ * Console (e.g. the IAM Troubleshooter), which must not be shown on
+ * Jurisdictional Console instances. The first sentence names the problem.
+ */
+function firstSentence(message: string | undefined): string {
+  const sentence = (message ?? '').split('. ')[0].trim();
+  if (!sentence) {
+    return FORBIDDEN_FALLBACK_MESSAGE;
+  }
+  return sentence.endsWith('.') ? sentence : `${sentence}.`;
+}
+
+/**
  * Shows a 403 from a Google API in the scheduler's error banner.
  *
- * "API disabled" errors get the banner with an enable link. Any other 403
- * shows its message without a link.
+ * Every 403 shows the banner, because the schedule and environment lists
+ * render the error only there. "API disabled" errors also get the enable
+ * link; any other 403 (e.g. a missing IAM permission) shows the first sentence
+ * of its message without a link.
  * @param error - the `error` object of the API response
  * @param setters - the banner state setters
  */
@@ -79,11 +97,12 @@ export function showForbiddenError(
   setters: IApiErrorSetters
 ): void {
   const banner = getEnableApiBanner(error);
+  setters.setIsApiError(true);
   if (banner) {
-    setters.setIsApiError(true);
     setters.setApiError(banner.message);
     setters.setApiEnableUrl([banner.url]);
   } else {
-    setters.setApiError(error.message ?? '');
+    setters.setApiError(firstSentence(error.message));
+    setters.setApiEnableUrl([]);
   }
 }

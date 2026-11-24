@@ -17,26 +17,35 @@
 
 import React from 'react';
 
+/**
+ * The scheduler's API error banner: the error text, followed by an enable link
+ * when the error is an "API disabled" error (see showForbiddenError).
+ */
 const EnableNotifyMessage = ({
   message,
   url
 }: {
   message: string;
-  url: any;
+  url: string[] | null;
 }): JSX.Element => {
-  const beforeLink = message || '';
+  const enableUrl = url?.[0];
   return (
     <>
-      {beforeLink}{' '}
-      <a
-        href={url?.[0]}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="cursor-icon"
-      >
-        Click here
-      </a>{' '}
-      to enable it.
+      {message || ''}
+      {enableUrl && (
+        <>
+          {' '}
+          <a
+            href={enableUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cursor-icon"
+          >
+            Click here
+          </a>{' '}
+          to enable it.
+        </>
+      )}
     </>
   );
 };

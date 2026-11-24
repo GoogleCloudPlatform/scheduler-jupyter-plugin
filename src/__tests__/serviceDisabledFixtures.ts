@@ -75,16 +75,27 @@ export const composerDisabled = () => ({
   ]
 });
 
-/** A 403 that isn't SERVICE_DISABLED but carries a global Console URL. */
+/**
+ * A 403 that isn't SERVICE_DISABLED: Vertex AI schedules.list without the IAM
+ * permission. Its message carries a global Console URL.
+ */
 export const iamPermissionDenied = () => ({
   code: 403,
   message:
-    "Permission 'iam.serviceAccounts.list' denied. See https://console.cloud.google.com/iam-admin/troubleshooter/summary",
+    "Permission 'aiplatform.schedules.list' denied on resource '//aiplatform.googleapis.com/projects/durczokj-1-237346/locations/us-central1' (or it may not exist). " +
+    'Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWEyMGQ3MS05ZjZjLTc3MDItYmQ3ZS0zNmIyMzI2ZjNmYWUSMHByb2plY3RzL2R1cmN6b2tqLTEtMjM3MzQ2L2xvY2F0aW9ucy91cy1jZW50cmFsMQ%3D%3D .',
+  status: 'PERMISSION_DENIED',
   details: [
     {
       '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
       reason: 'IAM_PERMISSION_DENIED',
-      domain: 'iam.googleapis.com'
+      domain: 'aiplatform.googleapis.com',
+      metadata: {
+        troubleshooter_url:
+          'https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWEyMGQ3MS05ZjZjLTc3MDItYmQ3ZS0zNmIyMzI2ZjNmYWUSMHByb2plY3RzL2R1cmN6b2tqLTEtMjM3MzQ2L2xvY2F0aW9ucy91cy1jZW50cmFsMQ%3D%3D',
+        resource: 'projects/durczokj-1-237346/locations/us-central1',
+        permission: 'aiplatform.schedules.list'
+      }
     }
   ]
 });
