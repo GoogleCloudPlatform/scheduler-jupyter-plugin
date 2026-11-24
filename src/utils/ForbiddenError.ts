@@ -52,6 +52,8 @@ export function getEnableApiBanner(
     return null;
   }
   const { service, project, title } = disabled;
+  // getEnableApiUrl links the Console API page only on the global Console and
+  // the docs everywhere else (Jurisdictional Consoles have no such page).
   const url =
     service && project ? getEnableApiUrl(service, project) : ENABLE_API_DOC_URL;
 

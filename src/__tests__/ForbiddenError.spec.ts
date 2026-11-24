@@ -27,6 +27,7 @@ import {
   translationDisabled
 } from './serviceDisabledFixtures';
 
+const GLOBAL_CONSOLE = 'https://console.cloud.google.com';
 const EU_CONSOLE = 'https://console.eu.cloud.google.com';
 
 function setConsoleOrigin(value: string) {
@@ -48,11 +49,19 @@ afterEach(() => {
 });
 
 describe('getEnableApiBanner', () => {
-  it('links the API page on the Console origin', () => {
+  it('links the API page on the global Console', () => {
+    setConsoleOrigin(GLOBAL_CONSOLE);
+    expect(getEnableApiBanner(composerDisabled())).toEqual({
+      message: 'Cloud Composer API is disabled in project durczokj-1-237346.',
+      url: `${GLOBAL_CONSOLE}/apis/api/composer.googleapis.com/overview?project=durczokj-1-237346`
+    });
+  });
+
+  it('links the docs on a Jurisdictional Console', () => {
     setConsoleOrigin(EU_CONSOLE);
     expect(getEnableApiBanner(composerDisabled())).toEqual({
       message: 'Cloud Composer API is disabled in project durczokj-1-237346.',
-      url: `${EU_CONSOLE}/apis/api/composer.googleapis.com/overview?project=durczokj-1-237346`
+      url: ENABLE_API_DOC_URL
     });
   });
 
@@ -91,7 +100,7 @@ describe('getEnableApiBanner', () => {
 
 describe('showForbiddenError', () => {
   it('shows the enable banner for SERVICE_DISABLED', () => {
-    setConsoleOrigin(EU_CONSOLE);
+    setConsoleOrigin(GLOBAL_CONSOLE);
     const setters = makeSetters();
     showForbiddenError(composerDisabled(), setters);
     expect(setters.setIsApiError).toHaveBeenCalledWith(true);
@@ -99,7 +108,7 @@ describe('showForbiddenError', () => {
       'Cloud Composer API is disabled in project durczokj-1-237346.'
     );
     expect(setters.setApiEnableUrl).toHaveBeenCalledWith([
-      `${EU_CONSOLE}/apis/api/composer.googleapis.com/overview?project=durczokj-1-237346`
+      `${GLOBAL_CONSOLE}/apis/api/composer.googleapis.com/overview?project=durczokj-1-237346`
     ]);
   });
 

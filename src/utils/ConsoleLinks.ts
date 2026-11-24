@@ -24,11 +24,17 @@
  * config key. When the key is missing or invalid (another JupyterLab host, or
  * Workbench couldn't resolve the Console), links point to public documentation
  * for the same task, never to a Console the user may not belong to.
+ *
+ * One exception: the enable-API link goes to the Console only on the global
+ * Console, because Jurisdictional Consoles don't have that page (see
+ * `getEnableApiUrl`).
  */
 
 import { PageConfig } from '@jupyterlab/coreutils';
 
 const CONSOLE_ORIGIN_KEY = 'consoleOrigin';
+
+const GLOBAL_CONSOLE_ORIGIN = 'https://console.cloud.google.com';
 
 // The global Console or a Jurisdictional Console, e.g.
 // https://console.eu.cloud.google.com.
@@ -82,11 +88,22 @@ export function getKmsUrl(projectId: string): string {
   );
 }
 
-/** The page that enables `service` (e.g. "composer.googleapis.com") in `project`. */
+/**
+ * The page that enables `service` (e.g. "composer.googleapis.com") in
+ * `project`.
+ *
+ * Unlike the other links, this one goes to the Console only when the origin is
+ * the global Console. Jurisdictional Consoles have no API details page: on the
+ * US Jurisdictional Console, `/apis/api/<service>/overview` returns "URL not
+ * found" even though the project opens. Their users, like users without a
+ * Console origin, get the docs on enabling APIs.
+ */
 export function getEnableApiUrl(service: string, project: string): string {
+  if (getConsoleOrigin() !== GLOBAL_CONSOLE_ORIGIN) {
+    return ENABLE_API_DOC_URL;
+  }
   const params = new URLSearchParams({ project });
-  return consoleOrDocsUrl(
-    `/apis/api/${encodeURIComponent(service)}/overview?${params.toString()}`,
-    ENABLE_API_DOC_URL
-  );
+  return `${GLOBAL_CONSOLE_ORIGIN}/apis/api/${encodeURIComponent(
+    service
+  )}/overview?${params.toString()}`;
 }

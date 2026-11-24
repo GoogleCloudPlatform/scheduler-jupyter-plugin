@@ -90,21 +90,34 @@ describe('getKmsUrl', () => {
 });
 
 describe('getEnableApiUrl', () => {
-  it('builds the API page on the Console origin', () => {
-    setConsoleOrigin(US_CONSOLE);
+  const GLOBAL_CONSOLE = 'https://console.cloud.google.com';
+
+  it('builds the API page on the global Console', () => {
+    setConsoleOrigin(GLOBAL_CONSOLE);
     expect(getEnableApiUrl('composer.googleapis.com', 'my-project')).toBe(
-      `${US_CONSOLE}/apis/api/composer.googleapis.com/overview?project=my-project`
+      `${GLOBAL_CONSOLE}/apis/api/composer.googleapis.com/overview?project=my-project`
     );
   });
 
   it('encodes a domain-scoped project ID', () => {
-    setConsoleOrigin(US_CONSOLE);
+    setConsoleOrigin(GLOBAL_CONSOLE);
     expect(
       getEnableApiUrl('composer.googleapis.com', 'example.com:my-project')
     ).toBe(
-      `${US_CONSOLE}/apis/api/composer.googleapis.com/overview?project=example.com%3Amy-project`
+      `${GLOBAL_CONSOLE}/apis/api/composer.googleapis.com/overview?project=example.com%3Amy-project`
     );
   });
+
+  // Jurisdictional Consoles have no API details page ("URL not found").
+  it.each([US_CONSOLE, 'https://console.eu.cloud.google.com'])(
+    'links to the docs on the Jurisdictional Console %s',
+    origin => {
+      setConsoleOrigin(origin);
+      expect(getEnableApiUrl('composer.googleapis.com', 'my-project')).toBe(
+        ENABLE_API_DOC_URL
+      );
+    }
+  );
 
   it('links to the docs without a Console origin', () => {
     setConsoleOrigin('');
