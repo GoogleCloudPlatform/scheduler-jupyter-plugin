@@ -82,11 +82,6 @@ cd ./ui-tests
 jlpm playwright test -u
 ```
 
-> Some discrepancy may occurs between the snapshots generated on your computer and
-> the one generated on the CI. To ease updating the snapshots on a PR, you can
-> type `please update playwright snapshots` to trigger the update by a bot on the CI.
-> Once the bot has computed new snapshots, it will commit them to the PR branch.
-
 ## Create tests
 
 > All commands are assumed to be executed from the root directory
