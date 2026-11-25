@@ -68,13 +68,13 @@ import {
   KEY_MESSAGE,
   scheduleMode,
   scheduleValueExpression,
-  SECURITY_KEY,
   SHARED_NETWORK_DOC_URL,
   SHIELDED_VM_DOC_URL,
   SUBNETWORK_VERTEX_ERROR,
   VERTEX_REGIONS,
   VERTEX_SCHEDULE
 } from '../../utils/Const';
+import { KMS_LINK, consoleLinks } from '../../utils/ConsoleLinks';
 import LearnMore from '../common/LearnMore';
 import ErrorMessage from '../common/ErrorMessage';
 import { VertexServices } from '../../services/Vertex';
@@ -1950,7 +1950,7 @@ const CreateVertexScheduler = ({
                     className="encryption-link"
                     onClick={() => {
                       window.open(
-                        `${SECURITY_KEY}?project=${projectId}`,
+                        consoleLinks.urlFor(KMS_LINK, { projectId }),
                         '_blank'
                       );
                     }}

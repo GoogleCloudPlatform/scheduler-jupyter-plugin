@@ -35,7 +35,7 @@ import {
   Typography
 } from '@mui/material';
 import CreateVertexScheduler from './vertex/CreateVertexScheduler';
-import EnableNotifyMessage from './common/EnableNotifyMessage';
+import ApiErrorBanner from './common/ApiErrorBanner';
 import { checkConfig } from '../utils/Config';
 import LoginErrorComponent from '../utils/LoginErrorComponent';
 import { INPUT_HELPER_TEXT } from '../utils/Const';
@@ -313,10 +313,7 @@ const NotebookSchedulerComponent = ({
                       className="logo-alignment-style"
                     />
                     <div className="error-key-missing">
-                      <EnableNotifyMessage
-                        message={apiError}
-                        url={apiEnableUrl}
-                      />
+                      <ApiErrorBanner message={apiError} url={apiEnableUrl} />
                     </div>
                   </div>
                 )}

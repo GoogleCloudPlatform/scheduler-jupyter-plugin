@@ -73,15 +73,6 @@ export enum ClusterStatus {
   STATUS_ACTIVE = 'ACTIVE'
 }
 
-export const LOG_EXPLORER_BASE_URL =
-  'https://console.cloud.google.com/logs/query';
-
-export const VIEW_LOGS_BATCH_URL = `${LOG_EXPLORER_BASE_URL};query=resource.type="cloud_dataproc_batch"`;
-
-export const VIEW_LOGS_CLUSTER_URL = `${LOG_EXPLORER_BASE_URL};query=resource.type="cloud_dataproc_cluster" resource.labels.cluster_name=`;
-
-export const VIEW_LOGS_SESSION_URL = `${LOG_EXPLORER_BASE_URL};query=resource.type="cloud_dataproc_session"`;
-
 export const CORN_EXP_DOC_URL =
   'https://cloud.google.com/scheduler/docs/configuring/cron-job-schedules';
 export const DISK_TYPE_VALUE = [
@@ -139,11 +130,6 @@ export const DEFAULT_TIME_ZONE = 'UTC';
 export const SHARED_NETWORK_DOC_URL =
   'https://cloud.google.com/vpc/docs/shared-vpc';
 
-// Pattern to check whether string contains link
-export const pattern =
-  // eslint-disable-next-line
-  /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g; // REGX to extract URL from string
-
 export const DEFAULT_DISK_MIN_SIZE = 10;
 
 export const DEFAULT_DISK_MAX_SIZE = 65536;
@@ -176,9 +162,6 @@ export const SUBNETWORK_VERTEX_ERROR =
   'No Subnetworks found with Google Private Access - ON';
 
 export const DEFAULT_ENCRYPTION_SELECTED = 'googleManagedEncryption';
-
-export const SECURITY_KEY =
-  'https://console.cloud.google.com/security/kms/keyrings';
 
 export const DEFAULT_CUSTOMER_MANAGED_SELECTION = 'key';
 

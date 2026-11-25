@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,19 +17,31 @@
 
 import React from 'react';
 
-const EnableNotifyMessage = ({
+/**
+ * The scheduler's API error banner: the error text, followed by an enable link
+ * when there is one (see ForbiddenErrorPresenter).
+ */
+const ApiErrorBanner = ({
   message,
   url
 }: {
   message: string;
-  url: any;
+  url: string[] | null;
 }): JSX.Element => {
-  const beforeLink = message?.split('. ')[0] || '';
+  let enableUrl: string | null = null;
+  if (url && url.length > 0) {
+    enableUrl = url[0];
+  }
+
+  if (enableUrl === null) {
+    return <>{message}</>;
+  }
+
   return (
     <>
-      {beforeLink}
+      {message}{' '}
       <a
-        href={url?.[0]}
+        href={enableUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="cursor-icon"
@@ -41,4 +53,4 @@ const EnableNotifyMessage = ({
   );
 };
 
-export default EnableNotifyMessage;
+export default ApiErrorBanner;

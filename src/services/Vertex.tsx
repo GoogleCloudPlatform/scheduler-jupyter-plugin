@@ -39,12 +39,12 @@ import {
   API_HEADER_BEARER,
   API_HEADER_CONTENT_TYPE,
   DEFAULT_TIME_ZONE,
-  HTTP_STATUS_FORBIDDEN,
-  pattern
+  HTTP_STATUS_FORBIDDEN
 } from '../utils/Const';
 import React, { Dispatch, SetStateAction } from 'react';
 import ExpandToastMessage from '../scheduler/common/ExpandToastMessage';
 import { handleErrorToast, handleEucConsentToast } from '../utils/ErrorUtils';
+import { showForbiddenError } from '../utils/ForbiddenError';
 import { extractEucConsentUrl } from '../utils/EucConsentError';
 
 export class VertexServices {
@@ -67,18 +67,11 @@ export class VertexServices {
               'code' in formattedResponse.error &&
               formattedResponse.error.code === HTTP_STATUS_FORBIDDEN
             ) {
-              // Pattern to check whether string contains link
-              const pattern =
-                // eslint-disable-next-line
-                /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g; // REGX to extract URL from string
-              const url = formattedResponse.error.message.match(pattern);
-              if (url && url.length > 0) {
-                setIsApiError(true);
-                setApiError(formattedResponse.error.message);
-                setApiEnableUrl(url);
-              } else {
-                setApiError(formattedResponse.error.message);
-              }
+              showForbiddenError(formattedResponse.error, {
+                setIsApiError,
+                setApiError,
+                setApiEnableUrl
+              });
             } else {
               throw formattedResponse.error;
             }
@@ -261,14 +254,11 @@ export class VertexServices {
 
       // Handle API error
       if (error?.code === HTTP_STATUS_FORBIDDEN) {
-        const url = error.message.match(pattern);
-        if (url && url.length > 0) {
-          setIsApiError(true);
-          setApiError(error.message);
-          setApiEnableUrl(url);
-        } else {
-          setApiError(error.message);
-        }
+        showForbiddenError(error, {
+          setIsApiError,
+          setApiError,
+          setApiEnableUrl
+        });
 
         return;
       }
